@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SkyTime</title>
+<!-- SkyTime Favicon & Icons (scoped to /SkyTime/) -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#18367a">
+<meta name="apple-mobile-web-app-title" content="SkyTime">
+<meta name="application-name" content="SkyTime">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
@@ -253,7 +262,10 @@ html, body {
 <div id="custom-modal" aria-hidden="true">
   <div class="modal-card" role="dialog" aria-label="Custom Location and Date/Time">
     <div class="modal-header">
-      <span>Custom Location &amp; Date/Time</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="favicon.svg" alt="SkyTime" style="width:24px;height:24px;display:block;border-radius:50%;box-shadow:0 0 10px rgba(242,140,66,0.35);">
+        <span>Custom Location &amp; Date/Time</span>
+      </div>
       <button class="modal-close" id="modal-close" type="button" aria-label="Close">×</button>
     </div>
     <div class="modal-section">

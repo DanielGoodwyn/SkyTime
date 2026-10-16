@@ -20,6 +20,16 @@ SkyTime is a single-page web application that displays two clocks side-by-side: 
 - **Top bar (30px)**: Three stacked 10px rows for `day`, `month`, `year` progress
 - **Bottom bar (30px)**: Three stacked 10px rows — `long`, `lat`, `gps` (each on its own row). No margin or padding; font and line-height no more than 10px.
 
+### Branding & Logo
+- **Celestial Emblem**: Unifies the Sun and Moon into one white line-art circle:
+  - **Top-left**: Radiant Sun with 9 sunbeams projecting into the celestial sky.
+  - **Bottom-right**: Crescent Moon curving inward along the bottom-right perimeter.
+  - **Lighting**: Subtle luminous outer glow around the white line-art strokes.
+  - **Aesthetics**: Background features the vertical 6:00 AM SkyTime sunrise gradient (deep twilight blue `#18367a`, indigo `#3c4a92`, violet-rose `#7c4e88`, sunrise rose `#bf5c6c`, and morning orange `#f28c40`).
+- **Web Icon Scoping**:
+  - All icons are scoped strictly to the `/SkyTime/` path with relative links (`favicon.svg`, `favicon-32x32.png`, `favicon-16x16.png`, `apple-touch-icon.png`, `favicon.ico`, `site.webmanifest`).
+  - Completely isolated so they never overwrite or interfere with `DanielGoodwyn.com` root domain icons.
+
 ### Typography
 - Large, tall, sleek sans-serif font (e.g., 'Oswald', 'Impact', or system font)
 - Time displayed vertically stacked:
