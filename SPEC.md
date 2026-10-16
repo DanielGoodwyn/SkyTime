@@ -180,8 +180,10 @@ To calculate sunrise and sunset using only latitude, longitude, and date, we use
     - If UT is negative, add 24
     - If UT is greater than or equal to 24, subtract 24
 
-12. **Convert UTC to Local Time**
+12. **Convert UTC to Local Time & Clock Time**
     - `localOffset = -timezoneOffset / 60` (timezone offset in hours)
+    - For live mode / active GPS or when viewing user's local zone, the device's native civil timezone offset (including Daylight Saving Time like PDT UTC-7 vs PST UTC-8) is used directly.
+    - For arbitrary coordinates worldwide (e.g. scrubbing longitude/latitude or custom locations), timezone offset calculates civil standard time (`Math.round(lng / 15)`) plus regional Daylight Saving Time rules (e.g. North America 2nd Sun Mar - 1st Sun Nov, Europe last Sun Mar - last Sun Oct, Australia/NZ southern summer) and known regional civil standard offsets (CET/CEST in Western/Central Europe, India +5:30, China +8, etc.).
     - `localTime = UT + localOffset`
     - Handle day boundaries:
       - If `localTime < 0`, add 24 and adjust day if needed

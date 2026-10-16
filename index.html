@@ -383,14 +383,122 @@ function getSkyTime(nowMs, latD, lngD) {
   return { h: H % 12 || 12, m: Min, s: Sec, ap: H < 12 ? 'am' : 'pm', skyHours: h24, isDay, dayProg: isDay ? prog * 0.5 : 0.5 + prog * 0.5 };
 }
 
-function getClockTime(nowMs, lngD) {
-  const tzOffH = Math.round(lngD / 15);
+function isDstInRegion(nowMs, latD, lngD) {
+  const d = new Date(nowMs);
+  const m = d.getUTCMonth();
+  const date = d.getUTCDate();
+  
+  if (latD >= 24 && latD <= 72 && lngD >= -168 && lngD <= -52) {
+    if (latD >= 31.3 && latD <= 37.0 && lngD >= -114.8 && lngD <= -109.0) return false;
+    if (latD <= 23 && lngD >= -162 && lngD <= -154) return false;
+    if (m > 2 && m < 10) return true;
+    if (m === 2) {
+      const firstDay = new Date(Date.UTC(d.getUTCFullYear(), 2, 1)).getUTCDay();
+      const secondSun = 1 + (7 - firstDay) % 7 + 7;
+      return date > secondSun || (date === secondSun && d.getUTCHours() >= 10);
+    }
+    if (m === 10) {
+      const firstDay = new Date(Date.UTC(d.getUTCFullYear(), 10, 1)).getUTCDay();
+      const firstSun = 1 + (7 - firstDay) % 7;
+      return date < firstSun || (date === firstSun && d.getUTCHours() < 10);
+    }
+    return false;
+  }
+  
+  if (latD >= 35 && latD <= 72 && lngD >= -15 && lngD <= 40) {
+    if (latD >= 63 && lngD <= -13) return false;
+    if (lngD > 28 && latD >= 50) return false;
+    if (m > 2 && m < 9) return true;
+    if (m === 2) {
+      const lastDay = new Date(Date.UTC(d.getUTCFullYear(), 2, 31)).getUTCDay();
+      const lastSun = 31 - lastDay;
+      return date > lastSun || (date === lastSun && d.getUTCHours() >= 1);
+    }
+    if (m === 9) {
+      const lastDay = new Date(Date.UTC(d.getUTCFullYear(), 9, 31)).getUTCDay();
+      const lastSun = 31 - lastDay;
+      return date < lastSun || (date === lastSun && d.getUTCHours() < 1);
+    }
+    return false;
+  }
+
+  if (latD <= -28 && latD >= -44 && lngD >= 135 && lngD <= 155) {
+    if (m >= 10 || m < 3) return true;
+    if (m === 9) {
+      const firstDay = new Date(Date.UTC(d.getUTCFullYear(), 9, 1)).getUTCDay();
+      const firstSun = 1 + (7 - firstDay) % 7;
+      return date >= firstSun;
+    }
+    if (m === 3) {
+      const firstDay = new Date(Date.UTC(d.getUTCFullYear(), 3, 1)).getUTCDay();
+      const firstSun = 1 + (7 - firstDay) % 7;
+      return date < firstSun;
+    }
+    return false;
+  }
+
+  if (latD <= -34 && latD >= -48 && lngD >= 165 && lngD <= 179) {
+    if (m >= 10 || m < 3) return true;
+    if (m === 8) {
+      const lastDay = new Date(Date.UTC(d.getUTCFullYear(), 8, 30)).getUTCDay();
+      const lastSun = 30 - lastDay;
+      return date >= lastSun;
+    }
+    if (m === 3) {
+      const firstDay = new Date(Date.UTC(d.getUTCFullYear(), 3, 1)).getUTCDay();
+      const firstSun = 1 + (7 - firstDay) % 7;
+      return date < firstSun;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+function getTimezoneOffsetHours(nowMs, latD, lngD) {
+  if (gpsState === 'on') {
+    return -new Date(nowMs).getTimezoneOffset() / 60;
+  }
+  try {
+    const localStdOffset = -new Date(Date.UTC(new Date(nowMs).getUTCFullYear(), 0, 15)).getTimezoneOffset() / 60;
+    const targetStdOffset = Math.round(lngD / 15);
+    if (Math.abs(targetStdOffset - localStdOffset) < 0.1 && Math.abs(lngD - (-localStdOffset * 15)) < 16) {
+      return -new Date(nowMs).getTimezoneOffset() / 60;
+    }
+  } catch (e) {}
+
+  if (latD >= 36 && latD <= 60 && lngD >= -11 && lngD <= 30) {
+    const isGmtZone = (latD >= 50 && latD <= 60 && lngD >= -11 && lngD <= 1.8) ||
+                      (latD >= 36 && latD <= 42.5 && lngD >= -9.6 && lngD <= -6.1);
+    const base = isGmtZone ? 0 : 1;
+    return base + (isDstInRegion(nowMs, latD, lngD) ? 1 : 0);
+  }
+
+  if (latD >= 7 && latD <= 36 && lngD >= 68 && lngD <= 90) return 5.5;
+  if (latD >= 25 && latD <= 40 && lngD >= 44 && lngD <= 63) return 3.5;
+  if (latD >= 26 && latD <= 31 && lngD >= 80 && lngD <= 88) return 5.75;
+  if (latD <= -10 && lngD >= 129 && lngD <= 141) {
+    const isDst = latD <= -26 && isDstInRegion(nowMs, latD, lngD);
+    return 9.5 + (isDst ? 1 : 0);
+  }
+  if (latD >= 46 && latD <= 52 && lngD >= -59 && lngD <= -52) {
+    return -3.5 + (isDstInRegion(nowMs, latD, lngD) ? 1 : 0);
+  }
+  if (latD >= 18 && latD <= 54 && lngD >= 73 && lngD <= 135) return 8;
+
+  let base = Math.round(lngD / 15);
+  if (isDstInRegion(nowMs, latD, lngD)) base += 1;
+  return base;
+}
+
+function getClockTime(nowMs, latD, lngD) {
+  const tzOffH = getTimezoneOffsetHours(nowMs, latD, lngD);
   const solar = new Date(nowMs + tzOffH * 3600000);
   const H = solar.getUTCHours(), M = solar.getUTCMinutes(), S = solar.getUTCSeconds(), ms = solar.getUTCMilliseconds();
   const Y = solar.getUTCFullYear(), Mo = solar.getUTCMonth(), D = solar.getUTCDate();
   const isoDate = `${Y}-${String(Mo + 1).padStart(2, '0')}-${String(D).padStart(2, '0')}`;
   const isoTime = `${String(H).padStart(2, '0')}:${String(M).padStart(2, '0')}:${String(S).padStart(2, '0')}`;
-  return { h: H % 12 || 12, m: M, s: S, ap: H < 12 ? 'am' : 'pm', fracHour: H + M / 60 + (S + ms / 1000) / 3600, Y, Mo, D, isoDate, isoTime };
+  return { h: H % 12 || 12, m: M, s: S, ap: H < 12 ? 'am' : 'pm', fracHour: H + M / 60 + (S + ms / 1000) / 3600, Y, Mo, D, isoDate, isoTime, tzOffH };
 }
 
 function moonPhase(nowMs) {
@@ -501,7 +609,7 @@ function toggleGps() {
 }
 
 function tick() {
-  const now = getActiveNowMs(), sky = getSkyTime(now, lat, lng), clk = getClockTime(now, lng);
+  const now = getActiveNowMs(), sky = getSkyTime(now, lat, lng), clk = getClockTime(now, lat, lng);
   setTimeDisplay('sky', sky);
   setTimeDisplay('clk', clk);
   document.getElementById('side-sky').style.background = `linear-gradient(to bottom,${interpStops(sky.skyHours)})`;
@@ -566,7 +674,7 @@ const modal = document.getElementById('custom-modal');
 let dateEditedInModal = false;
 
 function syncModalInputs() {
-  const now = getActiveNowMs(), clk = getClockTime(now, lng);
+  const now = getActiveNowMs(), clk = getClockTime(now, lat, lng);
   document.getElementById('inp-lat').value = Number(lat.toFixed(4));
   document.getElementById('inp-lng').value = Number(lng.toFixed(4));
   document.getElementById('inp-date').value = clk.isoDate;
@@ -615,13 +723,14 @@ function applyCustomFromModal() {
       const [Y, Mo, D] = dateVal.split('-').map(Number);
       const timeParts = timeVal.split(':').map(Number);
       const H = timeParts[0] || 0, M = timeParts[1] || 0, S = timeParts[2] || 0;
-      const tzOffH = Math.round(lng / 15);
+      const approxUtc = Date.UTC(Y, Mo - 1, D, H, M, S) - Math.round(lng / 15) * 3600000;
+      const tzOffH = getTimezoneOffsetHours(approxUtc, lat, lng);
       customTargetMs = Date.UTC(Y, Mo - 1, D, H, M, S) - tzOffH * 3600000;
       customAnchorRealMs = Date.now();
       customTimeMode = true;
     }
   } else {
-    const clk = getClockTime(getActiveNowMs(), lng);
+    const clk = getClockTime(getActiveNowMs(), lat, lng);
     document.getElementById('inp-date').value = clk.isoDate;
     document.getElementById('inp-time').value = clk.isoTime;
   }
