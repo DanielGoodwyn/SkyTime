@@ -18,7 +18,7 @@ html, body {
 #app { display: flex; flex-direction: column; height: 100vh; }
 #topbar, #bottombar { height: 30px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
 .progress-row, .bar-row, #gps-row { height: 10px; position: relative; flex-shrink: 0; margin: 0; padding: 0; overflow: hidden; }
-.bar-row, #gps-row { cursor: pointer; touch-action: none; }
+.progress-row, .bar-row, #gps-row { cursor: pointer; touch-action: none; }
 .fill {
   height: 100%;
   position: absolute;
@@ -27,7 +27,8 @@ html, body {
   pointer-events: none;
   border-right: 1px solid rgba(255, 255, 255, 0.45);
 }
-.label, .bar-label, #gps-label {
+#fill-gps { width: 0%; transition: width 0.2s ease; }
+.label, .bar-label, #gps-center {
   position: absolute;
   top: 0;
   line-height: 10px;
@@ -39,9 +40,15 @@ html, body {
   text-shadow: 0 0 3px rgba(0, 0, 0, 0.85), 0 0 1px rgba(0, 0, 0, 0.95);
 }
 .label { left: 4px; text-transform: lowercase; }
-.bar-label { right: 4px; text-align: right; font-variant-numeric: tabular-nums; }
-#gps-row { display: flex; align-items: center; justify-content: center; }
-#gps-label { position: static; text-transform: lowercase; }
+.bar-label {
+  right: 4px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.bar-label:hover { text-decoration: underline; }
+#gps-center { left: 50%; transform: translateX(-50%); text-transform: lowercase; }
 #clocks { display: flex; flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .clock-side { flex: 1; width: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
 .clock-label {
@@ -68,6 +75,102 @@ html, body {
 .time-part { font-weight: 200; letter-spacing: 0.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .time-ampm { font-weight: 300; letter-spacing: 0.14em; opacity: 0.85; margin-top: 2px; }
 .divider { width: 1px; height: 100%; background: rgba(255, 255, 255, 0.14); position: absolute; left: 50%; top: 0; z-index: 2; pointer-events: none; }
+#hud-pill {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  background: rgba(6, 10, 24, 0.52);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s, border-color 0.15s;
+}
+#hud-pill:hover { background: rgba(12, 20, 44, 0.75); border-color: rgba(255, 255, 255, 0.45); }
+.gps-dot { width: 6px; height: 6px; border-radius: 50%; background: #8892a6; display: inline-block; }
+.gps-dot.on { background: #38e54d; box-shadow: 0 0 6px #38e54d; }
+.gps-dot.locating { background: #f5b041; box-shadow: 0 0 6px #f5b041; }
+.gps-dot.denied { background: #ff4d4f; }
+#custom-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(2, 4, 12, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+#custom-modal.open { display: flex; }
+.modal-card {
+  width: 100%;
+  max-width: 360px;
+  background: rgba(12, 18, 38, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; font-size: 14px; letter-spacing: 0.12em; font-weight: 400; }
+.modal-close { background: none; border: none; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; opacity: 0.75; padding: 2px 6px; }
+.modal-close:hover { opacity: 1; }
+.modal-section { display: flex; flex-direction: column; gap: 6px; }
+.modal-section-title { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.65); }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field { display: flex; flex-direction: column; gap: 3px; }
+.field label { font-size: 10px; letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.78); }
+.field input {
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 6px;
+  color: #fff;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  outline: none;
+  color-scheme: dark;
+}
+.field input:focus { border-color: #6ea8e0; background: rgba(255, 255, 255, 0.14); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 6px;
+  color: #fff;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s;
+}
+.btn:hover { background: rgba(255, 255, 255, 0.22); }
+.btn.primary { background: rgba(42, 126, 216, 0.65); border-color: rgba(120, 188, 240, 0.6); }
+.btn.primary:hover { background: rgba(42, 126, 216, 0.85); }
+.btn.active-gps { background: rgba(40, 180, 70, 0.45); border-color: rgba(56, 229, 77, 0.65); }
+.mode-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: rgba(255, 255, 255, 0.85); letter-spacing: 0.05em; }
+.mode-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 @media (max-width: 540px) {
   html, body { overflow: auto; }
   #app { height: auto; min-height: 100vh; }
@@ -81,9 +184,21 @@ html, body {
 <body>
 <div id="app">
   <div id="topbar">
-    <div class="progress-row" id="row-day"><div class="fill" id="fill-day"></div><div class="label">day</div></div>
-    <div class="progress-row" id="row-month"><div class="fill" id="fill-month"></div><div class="label">month</div></div>
-    <div class="progress-row" id="row-year"><div class="fill" id="fill-year"></div><div class="label">year</div></div>
+    <div class="progress-row" id="row-day" title="Click to set custom date & time">
+      <div class="fill" id="fill-day"></div>
+      <div class="label">day</div>
+      <div class="bar-label" id="lbl-day"></div>
+    </div>
+    <div class="progress-row" id="row-month" title="Click to set custom date & time">
+      <div class="fill" id="fill-month"></div>
+      <div class="label">month</div>
+      <div class="bar-label" id="lbl-month"></div>
+    </div>
+    <div class="progress-row" id="row-year" title="Click to set custom date & time">
+      <div class="fill" id="fill-year"></div>
+      <div class="label">year</div>
+      <div class="bar-label" id="lbl-year"></div>
+    </div>
   </div>
   <div id="clocks">
     <div class="clock-side" id="side-sky">
@@ -105,15 +220,93 @@ html, body {
         <div class="time-ampm" id="clk-ap">am</div>
       </div>
     </div>
+    <button id="hud-pill" type="button" title="Click to set custom longitude/latitude or custom date/time">
+      <span class="gps-dot" id="hud-gps-dot"></span>
+      <span id="hud-gps-txt">gps: off</span>
+      <span>·</span>
+      <span id="hud-coords">37.77°, -122.42°</span>
+      <span>·</span>
+      <span id="hud-datetime">live</span>
+      <span>✎</span>
+    </button>
   </div>
   <div id="bottombar">
-    <div class="bar-row" id="row-lng"><div class="fill" id="fill-lng"></div><div class="label">long</div><div class="bar-label" id="lbl-lng">-122.42</div></div>
-    <div class="bar-row" id="row-lat"><div class="fill" id="fill-lat"></div><div class="label">lat</div><div class="bar-label" id="lbl-lat">37.77</div></div>
-    <div id="gps-row"><span id="gps-label">gps</span></div>
+    <div class="bar-row" id="row-lng" title="Click or drag bar to set longitude; click value to enter exact coordinates">
+      <div class="fill" id="fill-lng"></div>
+      <div class="label">long</div>
+      <div class="bar-label" id="lbl-lng">-122.42</div>
+    </div>
+    <div class="bar-row" id="row-lat" title="Click or drag bar to set latitude; click value to enter exact coordinates">
+      <div class="fill" id="fill-lat"></div>
+      <div class="label">lat</div>
+      <div class="bar-label" id="lbl-lat">37.77</div>
+    </div>
+    <div id="gps-row" title="Click to toggle live GPS location on/off">
+      <div class="fill" id="fill-gps"></div>
+      <div class="label">gps</div>
+      <div id="gps-center">gps: off</div>
+      <div class="bar-label" id="lbl-gps">off</div>
+    </div>
   </div>
 </div>
+
+<div id="custom-modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-label="Custom Location and Date/Time">
+    <div class="modal-header">
+      <span>Custom Location &amp; Date/Time</span>
+      <button class="modal-close" id="modal-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Location Coordinates</div>
+      <div class="field-grid">
+        <div class="field">
+          <label for="inp-lat">Latitude (-90 to 90)</label>
+          <input id="inp-lat" type="number" min="-90" max="90" step="any" placeholder="37.7749">
+        </div>
+        <div class="field">
+          <label for="inp-lng">Longitude (-180 to 180)</label>
+          <input id="inp-lng" type="number" min="-180" max="180" step="any" placeholder="-122.4194">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-gps-toggle" type="button">GPS Location: OFF</button>
+        <button class="btn" id="btn-sf-default" type="button">Default (SF)</button>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">Date &amp; Time (Location Standard Time)</div>
+      <div class="field-grid">
+        <div class="field">
+          <label for="inp-date">Date</label>
+          <input id="inp-date" type="date">
+        </div>
+        <div class="field">
+          <label for="inp-time">Time</label>
+          <input id="inp-time" type="time" step="1">
+        </div>
+      </div>
+      <div class="mode-row">
+        <label><input id="inp-freeze" type="checkbox"> Freeze at exact custom second</label>
+        <span id="modal-time-status">Mode: Live</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="btn-apply-custom" type="button">Apply Custom</button>
+        <button class="btn" id="btn-reset-live" type="button">Reset to Live Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 let lat = 37.7749, lng = -122.4194;
+let gpsState = 'off'; // 'off' | 'locating' | 'on' | 'denied'
+let gpsWatchId = null;
+let customTimeMode = false;
+let customTargetMs = null;
+let customAnchorRealMs = null;
+let customFrozen = false;
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const SKY_KF = [
   [0, ['#02030a', '#05081c', '#0a1230', '#101d48']],
   [4, ['#040614', '#081028', '#101e46', '#182d66']],
@@ -133,6 +326,13 @@ const SKY_KF = [
   [20.5, ['#030614', '#070c26', '#0e163a', '#152254']],
   [24, ['#02030a', '#05081c', '#0a1230', '#101d48']]
 ];
+
+function getActiveNowMs() {
+  if (!customTimeMode || customTargetMs === null) return Date.now();
+  if (customFrozen) return customTargetMs;
+  return customTargetMs + (Date.now() - customAnchorRealMs);
+}
+
 function calcSunEvent(y, m, d, latD, lngD, isRise) {
   const N = Math.floor((Date.UTC(y, m, d) - Date.UTC(y, 0, 0)) / 86400000);
   const lngH = lngD / 15, t = N + ((isRise ? 6 : 18) - lngH) / 24;
@@ -151,6 +351,7 @@ function calcSunEvent(y, m, d, latD, lngD, isRise) {
   if (!isRise && T < 12) T += 24;
   return { time: Date.UTC(y, m, d) + (T - lngH) * 3600000, polar: null };
 }
+
 function getSkyTime(nowMs, latD, lngD) {
   const lngH = lngD / 15, sd = new Date(nowMs + lngH * 3600000);
   const Y = sd.getUTCFullYear(), M = sd.getUTCMonth(), D = sd.getUTCDate();
@@ -181,15 +382,22 @@ function getSkyTime(nowMs, latD, lngD) {
   const fracM = (h24 - H) * 60, Min = Math.floor(fracM), Sec = Math.floor((fracM - Min) * 60);
   return { h: H % 12 || 12, m: Min, s: Sec, ap: H < 12 ? 'am' : 'pm', skyHours: h24, isDay, dayProg: isDay ? prog * 0.5 : 0.5 + prog * 0.5 };
 }
+
 function getClockTime(nowMs, lngD) {
-  const solar = new Date(nowMs + Math.round(lngD / 15) * 3600000);
+  const tzOffH = Math.round(lngD / 15);
+  const solar = new Date(nowMs + tzOffH * 3600000);
   const H = solar.getUTCHours(), M = solar.getUTCMinutes(), S = solar.getUTCSeconds(), ms = solar.getUTCMilliseconds();
-  return { h: H % 12 || 12, m: M, s: S, ap: H < 12 ? 'am' : 'pm', fracHour: H + M / 60 + (S + ms / 1000) / 3600 };
+  const Y = solar.getUTCFullYear(), Mo = solar.getUTCMonth(), D = solar.getUTCDate();
+  const isoDate = `${Y}-${String(Mo + 1).padStart(2, '0')}-${String(D).padStart(2, '0')}`;
+  const isoTime = `${String(H).padStart(2, '0')}:${String(M).padStart(2, '0')}:${String(S).padStart(2, '0')}`;
+  return { h: H % 12 || 12, m: M, s: S, ap: H < 12 ? 'am' : 'pm', fracHour: H + M / 60 + (S + ms / 1000) / 3600, Y, Mo, D, isoDate, isoTime };
 }
+
 function moonPhase(nowMs) {
   const synodic = 29.53058867, diff = (nowMs - Date.UTC(2000, 0, 6, 18, 14)) / 86400000;
   return (((diff % synodic) + synodic) % synodic) / synodic;
 }
+
 function solsticeProgress(nowMs) {
   const y = new Date(nowMs).getUTCFullYear();
   const wPrev = Date.UTC(y - 1, 11, 21, 12), sCurr = Date.UTC(y, 5, 21, 12), wCurr = Date.UTC(y, 11, 21, 12), sNext = Date.UTC(y + 1, 5, 21, 12);
@@ -197,6 +405,7 @@ function solsticeProgress(nowMs) {
   if (nowMs < wCurr) return 0.5 + 0.5 * (nowMs - sCurr) / (wCurr - sCurr);
   return 0.5 * (nowMs - wCurr) / (sNext - wCurr);
 }
+
 function interpStops(hour24, gain = 1, lift = 0) {
   const h = ((hour24 % 24) + 24) % 24;
   let lo = SKY_KF[0], hi = SKY_KF[SKY_KF.length - 1];
@@ -210,22 +419,89 @@ function interpStops(hour24, gain = 1, lift = 0) {
     return `rgb(${ch(1)},${ch(3)},${ch(5)})`;
   }).join(',');
 }
+
 function scaleFontToFit() {
   const side = document.getElementById('side-sky');
   if (!side) return;
-  const availH = Math.max(60, side.clientHeight - 36) * 0.72, availW = side.clientWidth * 0.62;
+  const availH = Math.max(60, side.clientHeight - 48) * 0.72, availW = side.clientWidth * 0.62;
   const fs = Math.max(16, Math.min(160, Math.floor(Math.min(availH / 3.45, availW / 1.85))));
   document.querySelectorAll('.time-part').forEach(el => el.style.fontSize = fs + 'px');
   document.querySelectorAll('.time-ampm').forEach(el => el.style.fontSize = Math.round(fs * 0.36) + 'px');
 }
+
 function setTimeDisplay(prefix, t) {
   document.getElementById(prefix + '-h').textContent = String(t.h).padStart(2, '0') + 'h';
   document.getElementById(prefix + '-m').textContent = String(t.m).padStart(2, '0') + 'm';
   document.getElementById(prefix + '-s').textContent = String(t.s).padStart(2, '0') + 's';
   document.getElementById(prefix + '-ap').textContent = t.ap;
 }
+
+function updateGpsUI() {
+  const dot = document.getElementById('hud-gps-dot');
+  const hudTxt = document.getElementById('hud-gps-txt');
+  const centerTxt = document.getElementById('gps-center');
+  const rightTxt = document.getElementById('lbl-gps');
+  const btnModal = document.getElementById('btn-gps-toggle');
+  dot.className = 'gps-dot ' + (gpsState === 'on' ? 'on' : gpsState === 'locating' ? 'locating' : gpsState === 'denied' ? 'denied' : '');
+  const labelMap = {
+    on: 'gps: on',
+    locating: 'gps: locating...',
+    denied: 'gps: off (location off/denied)',
+    off: 'gps: off'
+  };
+  hudTxt.textContent = labelMap[gpsState] || 'gps: off';
+  centerTxt.textContent = labelMap[gpsState] || 'gps: off';
+  rightTxt.textContent = gpsState === 'on' ? 'on' : gpsState === 'locating' ? 'locating...' : gpsState === 'denied' ? 'off (denied)' : 'off';
+  btnModal.textContent = `GPS Location: ${gpsState.toUpperCase()}`;
+  btnModal.classList.toggle('active-gps', gpsState === 'on');
+}
+
+function stopGps(newState = 'off') {
+  if (gpsWatchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+  gpsState = newState;
+  updateGpsUI();
+}
+
+function startGps() {
+  if (!navigator.geolocation) {
+    stopGps('denied');
+    tick();
+    return;
+  }
+  gpsState = 'locating';
+  updateGpsUI();
+  tick();
+  const onPos = (pos) => {
+    lat = Math.max(-90, Math.min(90, pos.coords.latitude));
+    lng = Math.max(-180, Math.min(180, pos.coords.longitude));
+    gpsState = 'on';
+    updateGpsUI();
+    syncModalInputs();
+    tick();
+  };
+  const onErr = () => {
+    stopGps('denied');
+    tick();
+  };
+  navigator.geolocation.getCurrentPosition(onPos, onErr, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+  if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+  gpsWatchId = navigator.geolocation.watchPosition(onPos, onErr, { enableHighAccuracy: true, maximumAge: 15000 });
+}
+
+function toggleGps() {
+  if (gpsState === 'on' || gpsState === 'locating') {
+    stopGps('off');
+    tick();
+  } else {
+    startGps();
+  }
+}
+
 function tick() {
-  const now = Date.now(), sky = getSkyTime(now, lat, lng), clk = getClockTime(now, lng);
+  const now = getActiveNowMs(), sky = getSkyTime(now, lat, lng), clk = getClockTime(now, lng);
   setTimeDisplay('sky', sky);
   setTimeDisplay('clk', clk);
   document.getElementById('side-sky').style.background = `linear-gradient(to bottom,${interpStops(sky.skyHours)})`;
@@ -233,43 +509,165 @@ function tick() {
   const trackGrad = sky.isDay ? `linear-gradient(to right,${interpStops(clk.fracHour, 0.55, 95)})` : `linear-gradient(to right,${interpStops(clk.fracHour, 0.35, 0)})`;
   const fillGrad = `linear-gradient(to right,${interpStops(clk.fracHour, 1.25, 18)})`;
   ['row-day', 'row-month', 'row-year', 'row-lng', 'row-lat', 'gps-row'].forEach(id => { document.getElementById(id).style.background = trackGrad; });
-  [['fill-day', sky.dayProg], ['fill-month', moonPhase(now)], ['fill-year', solsticeProgress(now)], ['fill-lng', (lng + 180) / 360], ['fill-lat', (lat + 90) / 180]].forEach(([id, p]) => {
+  const bars = [
+    ['fill-day', sky.dayProg],
+    ['fill-month', moonPhase(now)],
+    ['fill-year', solsticeProgress(now)],
+    ['fill-lng', (lng + 180) / 360],
+    ['fill-lat', (lat + 90) / 180],
+    ['fill-gps', gpsState === 'on' ? 1 : gpsState === 'locating' ? 0.5 : 0]
+  ];
+  bars.forEach(([id, p]) => {
     const el = document.getElementById(id);
     el.style.width = (Math.max(0, Math.min(1, p)) * 100) + '%';
     el.style.background = fillGrad;
   });
   document.getElementById('lbl-lng').textContent = lng.toFixed(2);
   document.getElementById('lbl-lat').textContent = lat.toFixed(2);
+  document.getElementById('lbl-day').textContent = `${String(clk.D).padStart(2, '0')}`;
+  document.getElementById('lbl-month').textContent = MONTHS[clk.Mo];
+  document.getElementById('lbl-year').textContent = `${clk.Y}`;
+  document.getElementById('hud-coords').textContent = `${lat.toFixed(2)}°, ${lng.toFixed(2)}°`;
+  document.getElementById('hud-datetime').textContent = customTimeMode
+    ? `${clk.isoDate} ${clk.isoTime}${customFrozen ? ' (frozen)' : ' (custom)'}`
+    : `${clk.isoDate} (live)`;
 }
+
 function bindBar(id, min, max, setter) {
   const el = document.getElementById(id);
   let active = false;
   const apply = (e) => {
     const rect = el.getBoundingClientRect();
     if (!rect.width) return;
+    if (gpsState !== 'off') stopGps('off');
     setter(min + Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * (max - min));
     tick();
   };
-  el.addEventListener('pointerdown', e => { active = true; el.setPointerCapture(e.pointerId); apply(e); });
+  el.addEventListener('pointerdown', e => {
+    if (e.target.classList.contains('bar-label')) return;
+    active = true;
+    el.setPointerCapture(e.pointerId);
+    apply(e);
+  });
   el.addEventListener('pointermove', e => { if (active) apply(e); });
   el.addEventListener('pointerup', e => { if (active) { apply(e); active = false; } });
   el.addEventListener('pointercancel', () => { active = false; });
-  el.addEventListener('click', apply);
+  el.addEventListener('click', e => {
+    if (e.target.classList.contains('bar-label')) return;
+    apply(e);
+  });
 }
+
 bindBar('row-lng', -180, 180, v => { lng = v; });
 bindBar('row-lat', -90, 90, v => { lat = v; });
-document.getElementById('gps-row').addEventListener('click', () => {
-  const lbl = document.getElementById('gps-label');
-  if (!navigator.geolocation) return;
-  lbl.textContent = 'gps...';
-  navigator.geolocation.getCurrentPosition(pos => {
-    lat = Math.max(-90, Math.min(90, pos.coords.latitude));
-    lng = Math.max(-180, Math.min(180, pos.coords.longitude));
-    lbl.textContent = 'gps';
-    tick();
-  }, () => { lbl.textContent = 'gps'; tick(); });
+document.getElementById('gps-row').addEventListener('click', toggleGps);
+
+const modal = document.getElementById('custom-modal');
+let dateEditedInModal = false;
+
+function syncModalInputs() {
+  const now = getActiveNowMs(), clk = getClockTime(now, lng);
+  document.getElementById('inp-lat').value = Number(lat.toFixed(4));
+  document.getElementById('inp-lng').value = Number(lng.toFixed(4));
+  document.getElementById('inp-date').value = clk.isoDate;
+  document.getElementById('inp-time').value = clk.isoTime;
+  document.getElementById('inp-freeze').checked = customFrozen;
+  document.getElementById('modal-time-status').textContent = customTimeMode ? (customFrozen ? 'Mode: Custom (Frozen)' : 'Mode: Custom (Ticking)') : 'Mode: Live';
+  updateGpsUI();
+}
+
+function openModal(focusId) {
+  dateEditedInModal = false;
+  syncModalInputs();
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  if (focusId) setTimeout(() => document.getElementById(focusId)?.focus(), 20);
+}
+
+function closeModal() {
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+document.getElementById('hud-pill').addEventListener('click', () => openModal('inp-lat'));
+document.getElementById('lbl-lng').addEventListener('click', e => { e.stopPropagation(); openModal('inp-lng'); });
+document.getElementById('lbl-lat').addEventListener('click', e => { e.stopPropagation(); openModal('inp-lat'); });
+['row-day', 'row-month', 'row-year'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => openModal('inp-date'));
 });
+document.getElementById('modal-close').addEventListener('click', closeModal);
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+function applyCustomFromModal() {
+  const newLat = parseFloat(document.getElementById('inp-lat').value);
+  const newLng = parseFloat(document.getElementById('inp-lng').value);
+  if (!isNaN(newLat) && !isNaN(newLng)) {
+    const changedCoords = Math.abs(newLat - lat) > 1e-6 || Math.abs(newLng - lng) > 1e-6;
+    lat = Math.max(-90, Math.min(90, newLat));
+    lng = Math.max(-180, Math.min(180, newLng));
+    if (changedCoords && gpsState !== 'off') stopGps('off');
+  }
+  if (dateEditedInModal || customTimeMode) {
+    const dateVal = document.getElementById('inp-date').value;
+    const timeVal = document.getElementById('inp-time').value;
+    customFrozen = document.getElementById('inp-freeze').checked;
+    if (dateVal && timeVal) {
+      const [Y, Mo, D] = dateVal.split('-').map(Number);
+      const timeParts = timeVal.split(':').map(Number);
+      const H = timeParts[0] || 0, M = timeParts[1] || 0, S = timeParts[2] || 0;
+      const tzOffH = Math.round(lng / 15);
+      customTargetMs = Date.UTC(Y, Mo - 1, D, H, M, S) - tzOffH * 3600000;
+      customAnchorRealMs = Date.now();
+      customTimeMode = true;
+    }
+  } else {
+    const clk = getClockTime(getActiveNowMs(), lng);
+    document.getElementById('inp-date').value = clk.isoDate;
+    document.getElementById('inp-time').value = clk.isoTime;
+  }
+  document.getElementById('modal-time-status').textContent = customTimeMode ? (customFrozen ? 'Mode: Custom (Frozen)' : 'Mode: Custom (Ticking)') : 'Mode: Live';
+  tick();
+}
+
+document.getElementById('btn-apply-custom').addEventListener('click', () => {
+  applyCustomFromModal();
+  closeModal();
+});
+['inp-lat', 'inp-lng'].forEach(id => {
+  document.getElementById(id).addEventListener('change', applyCustomFromModal);
+});
+['inp-date', 'inp-time', 'inp-freeze'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => { dateEditedInModal = true; });
+  document.getElementById(id).addEventListener('change', () => { dateEditedInModal = true; applyCustomFromModal(); });
+});
+document.getElementById('btn-reset-live').addEventListener('click', () => {
+  customTimeMode = false;
+  customTargetMs = null;
+  customFrozen = false;
+  dateEditedInModal = false;
+  syncModalInputs();
+  tick();
+});
+document.getElementById('btn-gps-toggle').addEventListener('click', toggleGps);
+document.getElementById('btn-sf-default').addEventListener('click', () => {
+  stopGps('off');
+  lat = 37.7749;
+  lng = -122.4194;
+  syncModalInputs();
+  tick();
+});
+
+if (navigator.permissions && navigator.permissions.query) {
+  navigator.permissions.query({ name: 'geolocation' }).then(res => {
+    if (res.state === 'granted') startGps();
+    res.addEventListener('change', () => {
+      if (res.state === 'denied') stopGps('denied');
+    });
+  }).catch(() => {});
+}
+
 window.addEventListener('resize', scaleFontToFit);
+updateGpsUI();
 scaleFontToFit();
 tick();
 setInterval(tick, 100);

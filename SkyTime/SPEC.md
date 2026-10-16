@@ -51,40 +51,47 @@ SkyTime is a single-page web application that displays two clocks side-by-side: 
 - Left and right should not have different color schemes - they should just look different based on where in the interpolation between keyframes they are
 - There should be no suddon gradient changes - there should be smooth interpolation between each keyframe
 
-### Progress Bars Section (top bar)
-- Three stacked progress bars at the top: **day**, **month**, **year**
-- Each bar is a full-width rectangle with no borders, margins, padding, or rounded corners
-- Labels overlay the bars on the left
-- Fill percentage indicates progress:
-  - **day**: Progress from sunrise to sunset (0% = sunrise, 50% = sunset, 100% = next sunrise)
-  - **month**: Moon phase progress (0% = new moon, 50% = full moon, 100% = next new moon)
-  - **year**: Progress from winter solstice to summer solstice (0% = winter solstice, 50% = summer solstice, 100% = next winter solstice)
-- Background and bar colors use time-of-day gradients (horizontal)
+- **Progress Bars Section (top bar)**:
+  - Three stacked progress bars at the top: **day**, **month**, **year**
+  - Each bar is a full-width rectangle with no borders, margins, padding, or rounded corners
+  - Labels overlay the bars on the left; current/custom date and time status overlays on the right (clickable to open custom date/time & location controls)
+  - Fill percentage indicates progress:
+    - **day**: Progress from sunrise to sunset (0% = sunrise, 50% = sunset, 100% = next sunrise)
+    - **month**: Moon phase progress (0% = new moon, 50% = full moon, 100% = next new moon)
+    - **year**: Progress from winter solstice to summer solstice (0% = winter solstice, 50% = summer solstice, 100% = next winter solstice)
+  - Background and bar colors use time-of-day gradients (horizontal)
 
 - **Longitude and Latitude bars**: Two clickable bars on separate rows (full width)
   - Longitude row: (-180 to 180)
   - Latitude row: (-90 to 90)
-  - Click anywhere on a bar to set the value proportionally (be sure hit area is correct - be sure the long/lat value is set according to the percent of the progress bar based on where the cursor is when the click is released)
-  - Values displayed as static text (2 decimal places) overlaying the bars (align right)
+  - Click or drag anywhere on a bar to set the value proportionally (hit area covers the bar; long/lat value is set according to the percent of the progress bar where the cursor is when the click is released)
+  - Values displayed as text (2 decimal places) overlaying the bars on the right; clicking the value or custom button allows typing exact custom longitude and latitude values
   - Bars styled like progress bars (no borders, margins, padding, rounded corners - dark or light background depending on if it is day or night, and horizontal gradient for filled part of progress)
   - Background colors use time-of-day gradients (horizontal)
-- **GPS button**: Full-width button at bottom
-  - Requests location via browser geolocation API
-  - Updates lat/lng bars when location is received
+- **GPS row / button**: Full-width row at bottom
+  - Clearly displays whether user location is turned **on** or **off** (e.g., `on`, `off`, `locating...`, or `off (denied)`) with visual bar fill indicator
+  - When turned **on**, requests and watches location via browser Geolocation API (`getCurrentPosition` / `watchPosition`), updates lat/lng bars, and calculates SkyTime according to the user's current longitude and latitude
+  - Clicking toggles GPS on/off; manually setting coordinates via the bars or custom input automatically switches GPS to **off**
 
 ## Functionality
 
-### Location
+### Location & Custom Coordinates
 - Default location: San Francisco, CA (37.7749° N, 122.4194° W)
 - User can set location via:
-  1. Clicking on lat/lng bars to set coordinates
-  2. GPS button to use device location
+  1. Clicking or dragging on lat/lng bars to set coordinates proportionally
+  2. Entering exact custom longitude (`-180` to `180`) and latitude (`-90` to `90`) values via the custom input controls
+  3. Toggling the GPS row **on** to use live device location (showing whether GPS is on or off)
 - Timezone is automatically calculated from longitude
+
+### Custom Date & Time Inspection
+- By default, SkyTime and Clock Time run in **live** mode using the current real-time clock
+- Users can input any custom **date** (`YYYY-MM-DD`) and **time** (`HH:MM:SS`) to view SkyTime, Clock Time, sky gradients, and `day`/`month`/`year` progress bars for that moment at the selected location
+- Users can either freeze time at the custom date/time, let it tick forward from that moment, or reset back to **Live Now**
 
 ### Calculations
 - Sunrise/sunset calculated using astronomical algorithms
 - SkyTime calculated by:
-  1. Determining if current time is in day or night period
+  1. Determining if current/selected time is in day or night period
   2. Calculating progress through that period (0.0 to 1.0)
   3. Mapping to 12-hour range (6:00-18:00 for day, 18:00-6:00 for night)
 - All calculations update in real-time
