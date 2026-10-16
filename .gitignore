@@ -1,0 +1,7 @@
+.DS_Store
+**/.DS_Store
+.playwright-mcp/
+**/.playwright-mcp/
+*.zip
+attempts/
+SkyTime Windsurf/

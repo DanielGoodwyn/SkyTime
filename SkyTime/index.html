@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkyTime</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Oswald', 'Avenir Next Condensed', 'Helvetica Neue', 'Arial Narrow', sans-serif;
+  color: #fff;
+  background: #02030a;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#app { display: flex; flex-direction: column; height: 100vh; }
+#topbar, #bottombar { height: 30px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
+.progress-row, .bar-row, #gps-row { height: 10px; position: relative; flex-shrink: 0; margin: 0; padding: 0; overflow: hidden; }
+.bar-row, #gps-row { cursor: pointer; touch-action: none; }
+.fill {
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.45);
+}
+.label, .bar-label, #gps-label {
+  position: absolute;
+  top: 0;
+  line-height: 10px;
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  z-index: 2;
+  pointer-events: none;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.85), 0 0 1px rgba(0, 0, 0, 0.95);
+}
+.label { left: 4px; text-transform: lowercase; }
+.bar-label { right: 4px; text-align: right; font-variant-numeric: tabular-nums; }
+#gps-row { display: flex; align-items: center; justify-content: center; }
+#gps-label { position: static; text-transform: lowercase; }
+#clocks { display: flex; flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.clock-side { flex: 1; width: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
+.clock-label {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: clamp(12px, 1.8vw, 20px);
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  opacity: 0.85;
+  text-transform: none;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+}
+.time-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0.98;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+  font-stretch: condensed;
+}
+.time-part { font-weight: 200; letter-spacing: 0.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.time-ampm { font-weight: 300; letter-spacing: 0.14em; opacity: 0.85; margin-top: 2px; }
+.divider { width: 1px; height: 100%; background: rgba(255, 255, 255, 0.14); position: absolute; left: 50%; top: 0; z-index: 2; pointer-events: none; }
+@media (max-width: 540px) {
+  html, body { overflow: auto; }
+  #app { height: auto; min-height: 100vh; }
+  #clocks { flex-direction: column; overflow: visible; }
+  .clock-side { width: 100%; min-height: calc(50vh - 30px); }
+  .divider { width: 100%; height: 1px; left: 0; top: 50%; }
+  #bottombar { position: sticky; bottom: 0; z-index: 10; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div class="progress-row" id="row-day"><div class="fill" id="fill-day"></div><div class="label">day</div></div>
+    <div class="progress-row" id="row-month"><div class="fill" id="fill-month"></div><div class="label">month</div></div>
+    <div class="progress-row" id="row-year"><div class="fill" id="fill-year"></div><div class="label">year</div></div>
+  </div>
+  <div id="clocks">
+    <div class="clock-side" id="side-sky">
+      <div class="clock-label">SkyTime</div>
+      <div class="time-display" id="display-sky">
+        <div class="time-part" id="sky-h">00h</div>
+        <div class="time-part" id="sky-m">00m</div>
+        <div class="time-part" id="sky-s">00s</div>
+        <div class="time-ampm" id="sky-ap">am</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="clock-side" id="side-clk">
+      <div class="clock-label">Clock Time</div>
+      <div class="time-display" id="display-clk">
+        <div class="time-part" id="clk-h">00h</div>
+        <div class="time-part" id="clk-m">00m</div>
+        <div class="time-part" id="clk-s">00s</div>
+        <div class="time-ampm" id="clk-ap">am</div>
+      </div>
+    </div>
+  </div>
+  <div id="bottombar">
+    <div class="bar-row" id="row-lng"><div class="fill" id="fill-lng"></div><div class="label">long</div><div class="bar-label" id="lbl-lng">-122.42</div></div>
+    <div class="bar-row" id="row-lat"><div class="fill" id="fill-lat"></div><div class="label">lat</div><div class="bar-label" id="lbl-lat">37.77</div></div>
+    <div id="gps-row"><span id="gps-label">gps</span></div>
+  </div>
+</div>
+<script>
+let lat = 37.7749, lng = -122.4194;
+const SKY_KF = [
+  [0, ['#02030a', '#05081c', '#0a1230', '#101d48']],
+  [4, ['#040614', '#081028', '#101e46', '#182d66']],
+  [5, ['#081436', '#102458', '#1e3f80', '#3b68a8']],
+  [5.5, ['#0e1f4d', '#223875', '#5c3c7a', '#a85070']],
+  [6, ['#18367a', '#485098', '#b85078', '#f28c40']],
+  [6.5, ['#2452a6', '#5684c8', '#d8986c', '#fae08c']],
+  [7, ['#3274c8', '#6ea8e0', '#cbe0ec', '#fff8d6']],
+  [9.5, ['#1c64c4', '#4e96de', '#9ed0f2', '#eef8fc']],
+  [12, ['#0a4cb4', '#2a7ed8', '#78bcf0', '#e6f5ff']],
+  [15, ['#1456b8', '#3882d4', '#82bce8', '#d8eefb']],
+  [17, ['#0c3484', '#2258a4', '#528cc8', '#8cc2e6']],
+  [17.5, ['#0c2a72', '#264892', '#7064a4', '#d47c54']],
+  [18, ['#122464', '#383c88', '#983868', '#eb5428']],
+  [18.5, ['#0a1644', '#1e2464', '#642868', '#c83c24']],
+  [19.2, ['#060d2c', '#101844', '#2e1a54', '#4a2450']],
+  [20.5, ['#030614', '#070c26', '#0e163a', '#152254']],
+  [24, ['#02030a', '#05081c', '#0a1230', '#101d48']]
+];
+function calcSunEvent(y, m, d, latD, lngD, isRise) {
+  const N = Math.floor((Date.UTC(y, m, d) - Date.UTC(y, 0, 0)) / 86400000);
+  const lngH = lngD / 15, t = N + ((isRise ? 6 : 18) - lngH) / 24;
+  const M = (0.9856 * t) - 3.289, Mr = M * Math.PI / 180;
+  let L = ((M + 1.916 * Math.sin(Mr) + 0.020 * Math.sin(2 * Mr) + 282.634) % 360 + 360) % 360;
+  const Lr = L * Math.PI / 180;
+  let RA = ((Math.atan(0.91764 * Math.tan(Lr)) * 180 / Math.PI) % 360 + 360) % 360;
+  RA = (RA + (Math.floor(L / 90) * 90 - Math.floor(RA / 90) * 90)) / 15;
+  const sinDec = 0.39782 * Math.sin(Lr), cosDec = Math.cos(Math.asin(sinDec));
+  const cosH = (Math.cos(90.833 * Math.PI / 180) - sinDec * Math.sin(latD * Math.PI / 180)) / (cosDec * Math.cos(latD * Math.PI / 180));
+  if (cosH > 1) return { time: null, polar: 'night' };
+  if (cosH < -1) return { time: null, polar: 'day' };
+  const H = (isRise ? 360 - Math.acos(cosH) * 180 / Math.PI : Math.acos(cosH) * 180 / Math.PI) / 15;
+  let T = ((H + RA - 0.06571 * t - 6.622) % 24 + 24) % 24;
+  if (isRise && T > 12) T -= 24;
+  if (!isRise && T < 12) T += 24;
+  return { time: Date.UTC(y, m, d) + (T - lngH) * 3600000, polar: null };
+}
+function getSkyTime(nowMs, latD, lngD) {
+  const lngH = lngD / 15, sd = new Date(nowMs + lngH * 3600000);
+  const Y = sd.getUTCFullYear(), M = sd.getUTCMonth(), D = sd.getUTCDate();
+  const dayEvents = (off) => {
+    const dt = new Date(Date.UTC(Y, M, D + off));
+    const y = dt.getUTCFullYear(), m = dt.getUTCMonth(), d = dt.getUTCDate();
+    return { rise: calcSunEvent(y, m, d, latD, lngD, true), set: calcSunEvent(y, m, d, latD, lngD, false), midMs: Date.UTC(y, m, d) - lngH * 3600000 };
+  };
+  const prev = dayEvents(-1), curr = dayEvents(0), next = dayEvents(1);
+  let isDay, prog;
+  if (curr.rise.polar === 'day' || curr.rise.polar === 'night') {
+    isDay = curr.rise.polar === 'day';
+    prog = Math.max(0, Math.min(1, (nowMs - curr.midMs) / 86400000));
+  } else {
+    const rPrev = prev.rise.time ?? (curr.midMs - 64800000), sPrev = prev.set.time ?? (curr.midMs - 21600000);
+    const rCurr = curr.rise.time, sCurr = curr.set.time;
+    const rNext = next.rise.time ?? (curr.midMs + 108000000), sNext = next.set.time ?? (curr.midMs + 151200000);
+    let start, end;
+    if (nowMs >= rNext) { isDay = true; start = rNext; end = sNext; }
+    else if (nowMs >= sCurr) { isDay = false; start = sCurr; end = rNext; }
+    else if (nowMs >= rCurr) { isDay = true; start = rCurr; end = sCurr; }
+    else if (nowMs >= sPrev) { isDay = false; start = sPrev; end = rCurr; }
+    else { isDay = true; start = rPrev; end = sPrev; }
+    prog = Math.max(0, Math.min(1, (nowMs - start) / (end - start)));
+  }
+  const skyHours = isDay ? 6 + prog * 12 : 18 + prog * 12;
+  const h24 = ((skyHours % 24) + 24) % 24, H = Math.floor(h24);
+  const fracM = (h24 - H) * 60, Min = Math.floor(fracM), Sec = Math.floor((fracM - Min) * 60);
+  return { h: H % 12 || 12, m: Min, s: Sec, ap: H < 12 ? 'am' : 'pm', skyHours: h24, isDay, dayProg: isDay ? prog * 0.5 : 0.5 + prog * 0.5 };
+}
+function getClockTime(nowMs, lngD) {
+  const solar = new Date(nowMs + Math.round(lngD / 15) * 3600000);
+  const H = solar.getUTCHours(), M = solar.getUTCMinutes(), S = solar.getUTCSeconds(), ms = solar.getUTCMilliseconds();
+  return { h: H % 12 || 12, m: M, s: S, ap: H < 12 ? 'am' : 'pm', fracHour: H + M / 60 + (S + ms / 1000) / 3600 };
+}
+function moonPhase(nowMs) {
+  const synodic = 29.53058867, diff = (nowMs - Date.UTC(2000, 0, 6, 18, 14)) / 86400000;
+  return (((diff % synodic) + synodic) % synodic) / synodic;
+}
+function solsticeProgress(nowMs) {
+  const y = new Date(nowMs).getUTCFullYear();
+  const wPrev = Date.UTC(y - 1, 11, 21, 12), sCurr = Date.UTC(y, 5, 21, 12), wCurr = Date.UTC(y, 11, 21, 12), sNext = Date.UTC(y + 1, 5, 21, 12);
+  if (nowMs < sCurr) return 0.5 * (nowMs - wPrev) / (sCurr - wPrev);
+  if (nowMs < wCurr) return 0.5 + 0.5 * (nowMs - sCurr) / (wCurr - sCurr);
+  return 0.5 * (nowMs - wCurr) / (sNext - wCurr);
+}
+function interpStops(hour24, gain = 1, lift = 0) {
+  const h = ((hour24 % 24) + 24) % 24;
+  let lo = SKY_KF[0], hi = SKY_KF[SKY_KF.length - 1];
+  for (let i = 0; i < SKY_KF.length - 1; i++) {
+    if (h >= SKY_KF[i][0] && h < SKY_KF[i + 1][0]) { lo = SKY_KF[i]; hi = SKY_KF[i + 1]; break; }
+  }
+  const t = (h - lo[0]) / (hi[0] - lo[0]);
+  return lo[1].map((c1, idx) => {
+    const c2 = hi[1][idx];
+    const ch = (o) => Math.min(255, Math.max(0, Math.round((parseInt(c1.slice(o, o + 2), 16) * (1 - t) + parseInt(c2.slice(o, o + 2), 16) * t) * gain + lift)));
+    return `rgb(${ch(1)},${ch(3)},${ch(5)})`;
+  }).join(',');
+}
+function scaleFontToFit() {
+  const side = document.getElementById('side-sky');
+  if (!side) return;
+  const availH = Math.max(60, side.clientHeight - 36) * 0.72, availW = side.clientWidth * 0.62;
+  const fs = Math.max(16, Math.min(160, Math.floor(Math.min(availH / 3.45, availW / 1.85))));
+  document.querySelectorAll('.time-part').forEach(el => el.style.fontSize = fs + 'px');
+  document.querySelectorAll('.time-ampm').forEach(el => el.style.fontSize = Math.round(fs * 0.36) + 'px');
+}
+function setTimeDisplay(prefix, t) {
+  document.getElementById(prefix + '-h').textContent = String(t.h).padStart(2, '0') + 'h';
+  document.getElementById(prefix + '-m').textContent = String(t.m).padStart(2, '0') + 'm';
+  document.getElementById(prefix + '-s').textContent = String(t.s).padStart(2, '0') + 's';
+  document.getElementById(prefix + '-ap').textContent = t.ap;
+}
+function tick() {
+  const now = Date.now(), sky = getSkyTime(now, lat, lng), clk = getClockTime(now, lng);
+  setTimeDisplay('sky', sky);
+  setTimeDisplay('clk', clk);
+  document.getElementById('side-sky').style.background = `linear-gradient(to bottom,${interpStops(sky.skyHours)})`;
+  document.getElementById('side-clk').style.background = `linear-gradient(to bottom,${interpStops(clk.fracHour)})`;
+  const trackGrad = sky.isDay ? `linear-gradient(to right,${interpStops(clk.fracHour, 0.55, 95)})` : `linear-gradient(to right,${interpStops(clk.fracHour, 0.35, 0)})`;
+  const fillGrad = `linear-gradient(to right,${interpStops(clk.fracHour, 1.25, 18)})`;
+  ['row-day', 'row-month', 'row-year', 'row-lng', 'row-lat', 'gps-row'].forEach(id => { document.getElementById(id).style.background = trackGrad; });
+  [['fill-day', sky.dayProg], ['fill-month', moonPhase(now)], ['fill-year', solsticeProgress(now)], ['fill-lng', (lng + 180) / 360], ['fill-lat', (lat + 90) / 180]].forEach(([id, p]) => {
+    const el = document.getElementById(id);
+    el.style.width = (Math.max(0, Math.min(1, p)) * 100) + '%';
+    el.style.background = fillGrad;
+  });
+  document.getElementById('lbl-lng').textContent = lng.toFixed(2);
+  document.getElementById('lbl-lat').textContent = lat.toFixed(2);
+}
+function bindBar(id, min, max, setter) {
+  const el = document.getElementById(id);
+  let active = false;
+  const apply = (e) => {
+    const rect = el.getBoundingClientRect();
+    if (!rect.width) return;
+    setter(min + Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * (max - min));
+    tick();
+  };
+  el.addEventListener('pointerdown', e => { active = true; el.setPointerCapture(e.pointerId); apply(e); });
+  el.addEventListener('pointermove', e => { if (active) apply(e); });
+  el.addEventListener('pointerup', e => { if (active) { apply(e); active = false; } });
+  el.addEventListener('pointercancel', () => { active = false; });
+  el.addEventListener('click', apply);
+}
+bindBar('row-lng', -180, 180, v => { lng = v; });
+bindBar('row-lat', -90, 90, v => { lat = v; });
+document.getElementById('gps-row').addEventListener('click', () => {
+  const lbl = document.getElementById('gps-label');
+  if (!navigator.geolocation) return;
+  lbl.textContent = 'gps...';
+  navigator.geolocation.getCurrentPosition(pos => {
+    lat = Math.max(-90, Math.min(90, pos.coords.latitude));
+    lng = Math.max(-180, Math.min(180, pos.coords.longitude));
+    lbl.textContent = 'gps';
+    tick();
+  }, () => { lbl.textContent = 'gps'; tick(); });
+});
+window.addEventListener('resize', scaleFontToFit);
+scaleFontToFit();
+tick();
+setInterval(tick, 100);
+</script>
+</body>
+</html>
