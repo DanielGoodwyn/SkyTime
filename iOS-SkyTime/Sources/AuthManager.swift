@@ -177,9 +177,9 @@ public final class AuthManager: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
         
-        // OAuth via ASWebAuthenticationSession pointing to Google / Firebase Auth handler
+        // OAuth via ASWebAuthenticationSession pointing to SkyTime Auth Bridge
         let scheme = "skytime-auth"
-        guard let authURL = URL(string: "https://\(FirebaseConfig.authDomain)/__/auth/handler") else {
+        guard let authURL = URL(string: "https://danielgoodwyn.com/SkyTime/auth-ios.html") else {
             self.errorMessage = "Invalid Google Auth configuration."
             return
         }
@@ -199,13 +199,28 @@ public final class AuthManager: ObservableObject {
                     return
                 }
                 
-                // Parse returned tokens or user info
-                let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
-                let queryItems = components?.queryItems ?? []
-                let email = queryItems.first(where: { $0.name == "email" })?.value ?? "danielgoodwyn@gmail.com"
-                let uid = queryItems.first(where: { $0.name == "uid" })?.value ?? UUID().uuidString
+                // Parse returned tokens or user info from skytime-auth://
+                guard let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false) else {
+                    continuation.resume()
+                    return
+                }
+                let queryItems = components.queryItems ?? []
+                let getParam = { (name: String) -> String? in queryItems.first(where: { $0.name == name })?.value }
                 
-                let user = SkyUser(uid: uid, email: email, displayName: email.components(separatedBy: "@").first)
+                guard let uid = getParam("uid"), !uid.isEmpty else {
+                    if let err = getParam("error") {
+                        self.errorMessage = err
+                    }
+                    continuation.resume()
+                    return
+                }
+                
+                let email = getParam("email") ?? "danielgoodwyn@gmail.com"
+                let displayName = getParam("displayName") ?? email.components(separatedBy: "@").first
+                let idToken = getParam("idToken")
+                let refreshToken = getParam("refreshToken")
+                
+                let user = SkyUser(uid: uid, email: email, displayName: displayName, idToken: idToken, refreshToken: refreshToken)
                 self.saveUser(user)
                 self.successMessage = "Signed in with Google as \(email)!"
                 continuation.resume()
