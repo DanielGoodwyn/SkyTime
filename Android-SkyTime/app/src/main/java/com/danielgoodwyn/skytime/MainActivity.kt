@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var locationManager: LocationManager
     private lateinit var authManager: AuthManager
+    private lateinit var favoritesManager: FavoritesManager
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -64,11 +65,14 @@ class MainActivity : ComponentActivity() {
 
         locationManager = LocationManager(this)
         authManager = AuthManager(this)
+        favoritesManager = FavoritesManager(this)
+        favoritesManager.loadFavorites(authManager.currentUser?.uid)
 
         setContent {
             SkyTimeScreen(
                 locationManager = locationManager,
                 authManager = authManager,
+                favoritesManager = favoritesManager,
                 onRequestLocationPermission = {
                     locationPermissionLauncher.launch(
                         arrayOf(
@@ -87,6 +91,7 @@ class MainActivity : ComponentActivity() {
 fun SkyTimeScreen(
     locationManager: LocationManager,
     authManager: AuthManager,
+    favoritesManager: FavoritesManager,
     onRequestLocationPermission: () -> Unit
 ) {
     var latitude by remember { mutableDoubleStateOf(37.7749) }
@@ -377,6 +382,12 @@ fun SkyTimeScreen(
                     isGpsOn = isGpsOn,
                     customTimeMode = customTimeMode,
                     customFrozen = customFrozen,
+                    favoritesManager = favoritesManager,
+                    authManager = authManager,
+                    onOpenAuth = {
+                        showLocationSheet = false
+                        showAuthSheet = true
+                    },
                     onSaveLocation = { newLat, newLng ->
                         latitude = newLat
                         longitude = newLng
@@ -539,6 +550,9 @@ fun LocationAndDateTimeSheet(
     isGpsOn: Boolean,
     customTimeMode: Boolean,
     customFrozen: Boolean,
+    favoritesManager: FavoritesManager,
+    authManager: AuthManager,
+    onOpenAuth: () -> Unit,
     onSaveLocation: (Double, Double) -> Unit,
     onToggleGps: () -> Unit,
     onResetSf: () -> Unit,
@@ -551,6 +565,9 @@ fun LocationAndDateTimeSheet(
     var dateText by remember { mutableStateOf("2026-10-16") }
     var timeText by remember { mutableStateOf("16:00:00") }
     var freezeChecked by remember { mutableStateOf(customFrozen) }
+    var favLabel by remember { mutableStateOf("") }
+    var favType by remember { mutableStateOf("Both") }
+    var favNotice by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -570,7 +587,90 @@ fun LocationAndDateTimeSheet(
             }
         }
 
-        // Location
+        // Section: Saved Favorites (if any)
+        if (favoritesManager.favorites.isNotEmpty()) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("★ SAVED FAVORITES", color = Color(0xFFF28C40), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("${favoritesManager.favorites.size}", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+                    }
+
+                    favoritesManager.favorites.forEach { fav ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.05f))
+                                .clickable {
+                                    if (fav.type == "Location" || fav.type == "Both") {
+                                        fav.latitude?.let { latText = "%.4f".format(it) }
+                                        fav.longitude?.let { lngText = "%.4f".format(it) }
+                                    }
+                                    if (fav.type == "Moment" || fav.type == "Both") {
+                                        fav.dateText?.let { dateText = it }
+                                        fav.timeText?.let { timeText = it }
+                                        freezeChecked = fav.isFrozen
+                                    }
+                                    favNotice = "Applied \"${fav.label}\""
+                                }
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(fav.label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    val badgeColor = when (fav.type) {
+                                        "Location" -> Color(0xFF00D2FF)
+                                        "Moment" -> Color(0xFFC084FC)
+                                        else -> Color(0xFFF28C40)
+                                    }
+                                    Text(
+                                        fav.type,
+                                        color = badgeColor,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .background(badgeColor.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                                val details = buildString {
+                                    if (fav.type == "Location" || fav.type == "Both") {
+                                        append("%.2f°, %.2f°".format(fav.latitude ?: 0.0, fav.longitude ?: 0.0))
+                                    }
+                                    if (fav.type == "Both") append(" · ")
+                                    if (fav.type == "Moment" || fav.type == "Both") {
+                                        append("${fav.dateText ?: ""} ${fav.timeText ?: ""}")
+                                        if (fav.isFrozen) append(" (Frozen)")
+                                    }
+                                }
+                                Text(details, color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    favoritesManager.deleteFavorite(fav.id, authManager.currentUser?.uid)
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Delete", tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section: Location
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
             shape = RoundedCornerShape(12.dp)
@@ -623,7 +723,7 @@ fun LocationAndDateTimeSheet(
             }
         }
 
-        // Date & Time
+        // Section: Date & Time
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
             shape = RoundedCornerShape(12.dp)
@@ -658,6 +758,82 @@ fun LocationAndDateTimeSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Reset to Live", color = Color.White)
+                }
+            }
+        }
+
+        // Section: Save as Favorite
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("★ SAVE AS FAVORITE", color = Color(0xFFF28C40), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+
+                if (authManager.currentUser != null) {
+                    OutlinedTextField(
+                        value = favLabel,
+                        onValueChange = { favLabel = it },
+                        label = { Text("Label (e.g. Home, Solstice, Eclipse)", color = Color.White.copy(0.7f)) },
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Location", "Moment", "Both").forEach { opt ->
+                            val isSelected = favType == opt
+                            Button(
+                                onClick = { favType = opt },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) Color(0xFFF28C40) else Color.White.copy(alpha = 0.1f)
+                                ),
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(vertical = 4.dp, horizontal = 6.dp)
+                            ) {
+                                Text(opt, fontSize = 11.sp, color = Color.White)
+                            }
+                        }
+                    }
+
+                    if (favNotice != null) {
+                        Text(favNotice!!, color = Color(0xFF51CF66), fontSize = 11.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            val label = favLabel.trim().ifEmpty { "Favorite ${favoritesManager.favorites.size + 1}" }
+                            val lt = latText.toDoubleOrNull() ?: latitude
+                            val lg = lngText.toDoubleOrNull() ?: longitude
+                            val newFav = SkyFavorite(
+                                label = label,
+                                type = favType,
+                                latitude = if (favType == "Location" || favType == "Both") lt else null,
+                                longitude = if (favType == "Location" || favType == "Both") lg else null,
+                                dateText = if (favType == "Moment" || favType == "Both") dateText else null,
+                                timeText = if (favType == "Moment" || favType == "Both") timeText else null,
+                                isFrozen = freezeChecked
+                            )
+                            favoritesManager.addFavorite(newFav, authManager.currentUser?.uid)
+                            favNotice = "★ Saved \"$label\"!"
+                            favLabel = ""
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF28C40).copy(alpha = 0.85f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("★ Save to Favorites", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                } else {
+                    Text("Sign in to save and sync favorite locations and moments.", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Button(
+                        onClick = onOpenAuth,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(0.12f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Begin / Sign In to Enable Favorites", color = Color.White, fontSize = 12.sp)
+                    }
                 }
             }
         }

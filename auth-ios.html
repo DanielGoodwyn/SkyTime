@@ -224,12 +224,12 @@
       });
     }
 
-    // Auto-attempt sign in on load after short delay
-    setTimeout(function() {
-      if (!auth.currentUser && !isCompleting) {
-        startSignIn();
+    // Check if user is already signed in on page load
+    auth.onAuthStateChanged(function(user) {
+      if (user) {
+        completeAuth(user);
       }
-    }, 200);
+    });
   </script>
 </body>
 </html>

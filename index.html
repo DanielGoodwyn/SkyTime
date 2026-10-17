@@ -349,6 +349,36 @@ html, body {
         <button class="btn" id="btn-reset-live" type="button">Reset to Live Now</button>
       </div>
     </div>
+    <!-- Favorites Section -->
+    <div class="modal-section" id="fav-saved-section" style="display:none;">
+      <div class="modal-section-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>★ Saved Favorites</span>
+        <span id="fav-count-badge" style="color:rgba(255,255,255,0.4); font-size:10px;">0</span>
+      </div>
+      <div id="fav-list-container" style="display:flex; flex-direction:column; gap:6px; max-height:130px; overflow-y:auto; padding-right:2px;">
+      </div>
+    </div>
+    <!-- Save Current as Favorite Section -->
+    <div class="modal-section" id="fav-save-section">
+      <div class="modal-section-title">Save as Favorite</div>
+      <div id="fav-auth-required" style="display:none; font-size:11px; color:rgba(255,255,255,0.65); line-height:1.4;">
+        <span>Sign in to save and sync favorite locations and moments.</span>
+        <button class="btn" id="btn-fav-goto-login" type="button" style="margin-top:6px; width:100%; padding:6px;">Begin / Sign In</button>
+      </div>
+      <div id="fav-form-container" style="display:flex; flex-direction:column; gap:6px;">
+        <input id="inp-fav-label" type="text" placeholder="Label (e.g., Home, Solstice, Eclipse)" style="background:rgba(255,255,255,0.09); border:1px solid rgba(255,255,255,0.24); border-radius:6px; color:#fff; padding:6px 8px; font-size:12px;">
+        <div style="display:flex; gap:8px; align-items:center; font-size:11px; color:rgba(255,255,255,0.8);">
+          <span style="font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase;">Save:</span>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:3px;"><input type="radio" name="fav-save-type" value="location"> Location</label>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:3px;"><input type="radio" name="fav-save-type" value="moment"> Moment</label>
+          <label style="cursor:pointer; display:flex; align-items:center; gap:3px;"><input type="radio" name="fav-save-type" value="both" checked> Both</label>
+        </div>
+        <div id="fav-save-feedback" style="display:none; font-size:11px; color:#51cf66;"></div>
+        <button class="btn" id="btn-save-fav" type="button" style="background:rgba(242,140,66,0.3); border-color:rgba(242,140,66,0.6); color:#fff; padding:6px 10px; font-weight:500;">
+          ★ Save to Favorites
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -814,6 +844,7 @@ function syncModalInputs() {
 function openModal(focusId) {
   dateEditedInModal = false;
   syncModalInputs();
+  renderFavorites();
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
   if (focusId) setTimeout(() => document.getElementById(focusId)?.focus(), 20);
@@ -1086,8 +1117,173 @@ if (auth) {
       authSignedInView.style.display = 'none';
       authUserEmail.textContent = '';
     }
+    renderFavorites();
   });
 }
+
+// --- Favorites Management (Location / Moment / Both) ---
+const favSavedSection = document.getElementById('fav-saved-section');
+const favCountBadge = document.getElementById('fav-count-badge');
+const favListContainer = document.getElementById('fav-list-container');
+const favAuthRequired = document.getElementById('fav-auth-required');
+const favFormContainer = document.getElementById('fav-form-container');
+const inpFavLabel = document.getElementById('inp-fav-label');
+const btnSaveFav = document.getElementById('btn-save-fav');
+const favSaveFeedback = document.getElementById('fav-save-feedback');
+const btnFavGotoLogin = document.getElementById('btn-fav-goto-login');
+
+function getFavStorageKey() {
+  const uid = auth?.currentUser?.uid;
+  return uid ? `skytime_favs_${uid}` : 'skytime_favs_guest';
+}
+
+function loadFavorites() {
+  try {
+    const raw = localStorage.getItem(getFavStorageKey());
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveFavoritesList(list) {
+  try {
+    localStorage.setItem(getFavStorageKey(), JSON.stringify(list));
+  } catch (e) {}
+}
+
+function renderFavorites() {
+  if (!favSavedSection) return;
+  const favs = loadFavorites();
+  const isLoggedIn = !!auth?.currentUser;
+
+  if (isLoggedIn) {
+    favAuthRequired.style.display = 'none';
+    favFormContainer.style.display = 'flex';
+  } else {
+    favAuthRequired.style.display = 'block';
+    favFormContainer.style.display = 'none';
+  }
+
+  if (favs.length > 0) {
+    favSavedSection.style.display = 'block';
+    favCountBadge.textContent = favs.length;
+    favListContainer.innerHTML = '';
+    favs.forEach((fav, index) => {
+      const card = document.createElement('div');
+      card.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.06); padding:6px 10px; border-radius:6px; cursor:pointer; font-size:11px;';
+      
+      const badgeColors = {
+        location: '#00d2ff',
+        moment: '#c084fc',
+        both: '#f28c42'
+      };
+      const badgeColor = badgeColors[fav.type] || '#f28c42';
+
+      let details = '';
+      if (fav.type === 'location' || fav.type === 'both') {
+        details += `${(fav.lat || 0).toFixed(2)}°, ${(fav.lng || 0).toFixed(2)}°`;
+      }
+      if (fav.type === 'both') details += ' · ';
+      if (fav.type === 'moment' || fav.type === 'both') {
+        details += `${fav.date || ''} ${fav.time || ''}${fav.frozen ? ' (Frozen)' : ''}`;
+      }
+
+      card.innerHTML = `
+        <div style="flex:1; overflow:hidden;" title="Click to apply">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-weight:600; color:#fff;">★ ${fav.label}</span>
+            <span style="font-size:9px; padding:1px 5px; border-radius:3px; background:${badgeColor}33; color:${badgeColor}; font-weight:700; text-transform:uppercase;">${fav.type}</span>
+          </div>
+          <div style="color:rgba(255,255,255,0.6); font-size:10px; margin-top:2px;">${details}</div>
+        </div>
+        <button type="button" class="del-fav" style="background:none; border:none; color:rgba(255,255,255,0.4); font-size:14px; cursor:pointer; padding:2px 6px;">×</button>
+      `;
+
+      card.querySelector('div').addEventListener('click', () => applyFavorite(fav));
+      card.querySelector('.del-fav').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteFavorite(index);
+      });
+      favListContainer.appendChild(card);
+    });
+  } else {
+    favSavedSection.style.display = 'none';
+  }
+}
+
+function applyFavorite(fav) {
+  if (fav.type === 'location' || fav.type === 'both') {
+    lat = fav.lat;
+    lng = fav.lng;
+    document.getElementById('inp-lat').value = lat.toFixed(4);
+    document.getElementById('inp-lng').value = lng.toFixed(4);
+    if (gpsState !== 'off') stopGps('off');
+  }
+  if (fav.type === 'moment' || fav.type === 'both') {
+    document.getElementById('inp-date').value = fav.date;
+    document.getElementById('inp-time').value = fav.time;
+    document.getElementById('inp-freeze').checked = !!fav.frozen;
+    dateEditedInModal = true;
+    customFrozen = !!fav.frozen;
+    const [Y, Mo, D] = (fav.date || '').split('-').map(Number);
+    const [H, M, S] = (fav.time || '').split(':').map(Number);
+    if (Y && Mo && D) {
+      const approxUtc = Date.UTC(Y, Mo - 1, D, H || 0, M || 0, S || 0) - Math.round(lng / 15) * 3600000;
+      const tzOffH = getTimezoneOffsetHours(approxUtc, lat, lng);
+      customTargetMs = Date.UTC(Y, Mo - 1, D, H || 0, M || 0, S || 0) - tzOffH * 3600000;
+      customAnchorRealMs = Date.now();
+      customTimeMode = true;
+    }
+  }
+  tick();
+  favSaveFeedback.textContent = `Applied "${fav.label}"`;
+  favSaveFeedback.style.display = 'block';
+  setTimeout(() => { favSaveFeedback.style.display = 'none'; }, 2000);
+}
+
+function deleteFavorite(index) {
+  const list = loadFavorites();
+  list.splice(index, 1);
+  saveFavoritesList(list);
+  renderFavorites();
+}
+
+btnSaveFav?.addEventListener('click', () => {
+  const label = inpFavLabel.value.trim() || `Favorite ${loadFavorites().length + 1}`;
+  const type = document.querySelector('input[name="fav-save-type"]:checked')?.value || 'both';
+  const curLat = parseFloat(document.getElementById('inp-lat').value) || lat;
+  const curLng = parseFloat(document.getElementById('inp-lng').value) || lng;
+  const curDate = document.getElementById('inp-date').value;
+  const curTime = document.getElementById('inp-time').value;
+  const frozen = document.getElementById('inp-freeze').checked;
+
+  const newFav = {
+    id: Date.now().toString(),
+    label,
+    type,
+    lat: curLat,
+    lng: curLng,
+    date: curDate,
+    time: curTime,
+    frozen
+  };
+
+  const list = loadFavorites();
+  list.unshift(newFav);
+  saveFavoritesList(list);
+  inpFavLabel.value = '';
+  renderFavorites();
+
+  favSaveFeedback.textContent = `★ Saved "${label}"!`;
+  favSaveFeedback.style.display = 'block';
+  setTimeout(() => { favSaveFeedback.style.display = 'none'; }, 2500);
+});
+
+btnFavGotoLogin?.addEventListener('click', () => {
+  closeModal();
+  openAuthModal();
+});
 </script>
 </body>
 </html>

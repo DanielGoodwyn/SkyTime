@@ -11,6 +11,7 @@
 		0FE36AE7C3ADE344B1ACE88F /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72156D24DB705E5CE12F3D1F /* AuthManager.swift */; };
 		107C57FA6A0CF27BBD80CB91 /* SkyTimeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819B1C69A02A7ED853DADD23 /* SkyTimeApp.swift */; };
 		19089514427210A24743FD10 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC55D10422A0EE6759CE47F9 /* ContentView.swift */; };
+		3A0848B91427416EBF74ABA5 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A638F6F8A86EC7FB0CBFD447 /* FavoritesManager.swift */; };
 		3B1A90C3399B81D0B1E7286A /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3805B1446B0F0F04989EC243 /* LocationManager.swift */; };
 		64D397455F6FCEA519EB0960 /* ProgressBarsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B49D7667A50BCFF3537DC3 /* ProgressBarsView.swift */; };
 		72D8C46576E07A7EC324CDFF /* AstronomicalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1DDC8DF9C148D3E563376 /* AstronomicalEngine.swift */; };
@@ -28,6 +29,7 @@
 		72156D24DB705E5CE12F3D1F /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		819B1C69A02A7ED853DADD23 /* SkyTimeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkyTimeApp.swift; sourceTree = "<group>"; };
 		9FC80A94778CE121DD6F3602 /* SkyGradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkyGradient.swift; sourceTree = "<group>"; };
+		A638F6F8A86EC7FB0CBFD447 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
 		A7083F51AAFDB99ED14EBE9A /* SkyTime.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SkyTime.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5F7A929CA577E7A5A38667D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C91CA42B86A1F5D59976AC5A /* HUDPillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDPillView.swift; sourceTree = "<group>"; };
@@ -48,6 +50,7 @@
 				6950ADDCFC5DBEEF5C024FD9 /* ClockDisplayView.swift */,
 				CC55D10422A0EE6759CE47F9 /* ContentView.swift */,
 				ED1849CCB6F99AF2381623D2 /* CustomLocationSheet.swift */,
+				A638F6F8A86EC7FB0CBFD447 /* FavoritesManager.swift */,
 				C91CA42B86A1F5D59976AC5A /* HUDPillView.swift */,
 				3805B1446B0F0F04989EC243 /* LocationManager.swift */,
 				D5B49D7667A50BCFF3537DC3 /* ProgressBarsView.swift */,
@@ -160,6 +163,7 @@
 				CC0183191E69C1E975E0CDE1 /* ClockDisplayView.swift in Sources */,
 				19089514427210A24743FD10 /* ContentView.swift in Sources */,
 				E1A139F8FFB8477D6B3FC71D /* CustomLocationSheet.swift in Sources */,
+				3A0848B91427416EBF74ABA5 /* FavoritesManager.swift in Sources */,
 				F0E800ECB2D196926D207B50 /* HUDPillView.swift in Sources */,
 				3B1A90C3399B81D0B1E7286A /* LocationManager.swift in Sources */,
 				64D397455F6FCEA519EB0960 /* ProgressBarsView.swift in Sources */,
