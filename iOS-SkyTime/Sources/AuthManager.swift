@@ -68,6 +68,7 @@ public final class AuthManager: ObservableObject {
         } else {
             UserDefaults.standard.removeObject(forKey: userDefaultsKey)
         }
+        FavoritesManager.shared.onUserChanged(user?.uid)
     }
     
     public func signOut() {

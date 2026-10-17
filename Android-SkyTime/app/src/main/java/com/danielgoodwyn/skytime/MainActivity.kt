@@ -115,6 +115,16 @@ fun SkyTimeScreen(
         }
     }
 
+    LaunchedEffect(authManager.currentUser) {
+        favoritesManager.loadFavorites(authManager.currentUser?.uid)
+    }
+
+    LaunchedEffect(showLocationSheet) {
+        if (showLocationSheet) {
+            favoritesManager.loadFavorites(authManager.currentUser?.uid)
+        }
+    }
+
     val activeNowMs = remember(currentTimeMs, customTimeMode, customTargetMs, customFrozen) {
         if (!customTimeMode || customTargetMs == null) {
             currentTimeMs
@@ -1049,7 +1059,7 @@ fun AuthSheet(
                 // Google Sign In
                 OutlinedButton(
                     onClick = {
-                        authManager.saveUser(SkyUser(uid = java.util.UUID.randomUUID().toString(), email = "danielgoodwyn@gmail.com", displayName = "Daniel"))
+                        authManager.saveUser(SkyUser(uid = "jwFAtHnaWTY3mDV91XxxxQixusZ2", email = "danielgoodwyn@gmail.com", displayName = "Daniel"))
                         onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth()

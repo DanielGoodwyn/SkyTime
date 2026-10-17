@@ -479,6 +479,7 @@ html, body {
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 let lat = 37.7749, lng = -122.4194;
 let gpsState = 'off'; // 'off' | 'locating' | 'on' | 'denied'
@@ -991,6 +992,8 @@ if (window.firebase && !firebase.apps.length) {
   }
 }
 const auth = window.firebase ? firebase.auth() : null;
+const db = window.firebase ? firebase.firestore() : null;
+let firestoreFavsUnsubscribe = null;
 
 const authModal = document.getElementById('auth-modal');
 const authPill = document.getElementById('auth-pill');
@@ -1145,7 +1148,44 @@ if (auth) {
       authSignedInView.style.display = 'flex';
       authUserEmail.textContent = email;
       authAvatar.textContent = (prefix[0] || 'U').toUpperCase();
+
+      // Attach Firestore real-time listener for this user's favorites
+      if (firestoreFavsUnsubscribe) {
+        firestoreFavsUnsubscribe();
+        firestoreFavsUnsubscribe = null;
+      }
+      if (db) {
+        firestoreFavsUnsubscribe = db.collection('skytime_favorites').doc(user.uid).onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            if (data && data.json) {
+              try {
+                const cloudList = JSON.parse(data.json);
+                if (Array.isArray(cloudList)) {
+                  const canonical = cloudList.map((item, idx) => toCanonicalFav(item, idx));
+                  localStorage.setItem(`skytime_favs_${user.uid}`, JSON.stringify(canonical));
+                  renderFavorites();
+                }
+              } catch (e) {
+                console.warn("Error parsing favorites JSON from Firestore:", e);
+              }
+            }
+          } else {
+            // First time for this user: if local favorites exist, upload to cloud
+            const existing = loadFavorites();
+            if (existing.length > 0) {
+              saveFavoritesList(existing);
+            }
+          }
+        }, (err) => {
+          console.warn("Firestore favorites snapshot error:", err);
+        });
+      }
     } else {
+      if (firestoreFavsUnsubscribe) {
+        firestoreFavsUnsubscribe();
+        firestoreFavsUnsubscribe = null;
+      }
       authPillText.textContent = 'Begin';
       authPillIcon.style.color = 'rgba(255,255,255,0.92)';
       authSignedOutView.style.display = 'flex';
@@ -1172,19 +1212,59 @@ function getFavStorageKey() {
   return uid ? `skytime_favs_${uid}` : 'skytime_favs_guest';
 }
 
+function toCanonicalFav(item, index = 0) {
+  const t = (item.type || 'Both').toLowerCase();
+  const normalizedType = t === 'location' ? 'Location' : (t === 'moment' ? 'Moment' : 'Both');
+  const latVal = typeof item.lat === 'number' ? item.lat : (typeof item.latitude === 'number' ? item.latitude : null);
+  const lngVal = typeof item.lng === 'number' ? item.lng : (typeof item.longitude === 'number' ? item.longitude : null);
+  const dateVal = item.date || item.dateText || null;
+  const timeVal = item.time || item.timeText || null;
+  const isFrozen = !!(item.frozen !== undefined ? item.frozen : item.isFrozen);
+
+  return {
+    id: item.id || `${Date.now()}_${index}`,
+    label: item.label || `Favorite ${index + 1}`,
+    type: normalizedType,
+    lat: latVal,
+    latitude: latVal,
+    lng: lngVal,
+    longitude: lngVal,
+    date: dateVal,
+    dateText: dateVal,
+    time: timeVal,
+    timeText: timeVal,
+    frozen: isFrozen,
+    isFrozen: isFrozen,
+    createdAt: item.createdAt || Date.now()
+  };
+}
+
 function loadFavorites() {
   try {
     const raw = localStorage.getItem(getFavStorageKey());
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map((item, idx) => toCanonicalFav(item, idx)) : [];
   } catch (e) {
     return [];
   }
 }
 
 function saveFavoritesList(list) {
+  const canonicalList = list.map((item, idx) => toCanonicalFav(item, idx));
   try {
-    localStorage.setItem(getFavStorageKey(), JSON.stringify(list));
+    localStorage.setItem(getFavStorageKey(), JSON.stringify(canonicalList));
   } catch (e) {}
+
+  const uid = auth?.currentUser?.uid;
+  if (uid && db) {
+    db.collection('skytime_favorites').doc(uid).set({
+      json: JSON.stringify(canonicalList),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(err => {
+      console.warn("Firestore sync error:", err);
+    });
+  }
 }
 
 function renderFavorites() {
@@ -1213,14 +1293,16 @@ function renderFavorites() {
         moment: '#c084fc',
         both: '#f28c42'
       };
-      const badgeColor = badgeColors[fav.type] || '#f28c42';
+      const badgeColor = badgeColors[fav.type.toLowerCase()] || '#f28c42';
 
       let details = '';
-      if (fav.type === 'location' || fav.type === 'both') {
-        details += `${(fav.lat || 0).toFixed(2)}°, ${(fav.lng || 0).toFixed(2)}°`;
+      if (fav.type === 'Location' || fav.type === 'Both') {
+        const lt = typeof fav.lat === 'number' ? fav.lat : 0;
+        const lg = typeof fav.lng === 'number' ? fav.lng : 0;
+        details += `${lt.toFixed(2)}°, ${lg.toFixed(2)}°`;
       }
-      if (fav.type === 'both') details += ' · ';
-      if (fav.type === 'moment' || fav.type === 'both') {
+      if (fav.type === 'Both') details += ' · ';
+      if (fav.type === 'Moment' || fav.type === 'Both') {
         details += `${fav.date || ''} ${fav.time || ''}${fav.frozen ? ' (Frozen)' : ''}`;
       }
 
@@ -1248,7 +1330,10 @@ function renderFavorites() {
 }
 
 function applyFavorite(fav) {
-  if (fav.type === 'location' || fav.type === 'both') {
+  const isLoc = fav.type === 'Location' || fav.type === 'Both';
+  const isMom = fav.type === 'Moment' || fav.type === 'Both';
+
+  if (isLoc && typeof fav.lat === 'number' && typeof fav.lng === 'number') {
     lat = fav.lat;
     lng = fav.lng;
     document.getElementById('inp-lat').value = lat.toFixed(4);
@@ -1262,11 +1347,11 @@ function applyFavorite(fav) {
   dateEditedInModal = true;
   customTimeMode = true;
 
-  if (fav.type === 'moment' || fav.type === 'both') {
+  if (isMom && fav.date) {
     document.getElementById('inp-date').value = fav.date;
-    document.getElementById('inp-time').value = fav.time;
-    const [Y, Mo, D] = (fav.date || '').split('-').map(Number);
-    const [H, M, S] = (fav.time || '').split(':').map(Number);
+    document.getElementById('inp-time').value = fav.time || '12:00:00';
+    const [Y, Mo, D] = fav.date.split('-').map(Number);
+    const [H, M, S] = (fav.time || '12:00:00').split(':').map(Number);
     if (Y && Mo && D) {
       const approxUtc = Date.UTC(Y, Mo - 1, D, H || 0, M || 0, S || 0) - Math.round(lng / 15) * 3600000;
       const tzOffH = getTimezoneOffsetHours(approxUtc, lat, lng);
@@ -1309,24 +1394,26 @@ function deleteFavorite(index) {
 }
 
 btnSaveFav?.addEventListener('click', () => {
-  const label = inpFavLabel.value.trim() || `Favorite ${loadFavorites().length + 1}`;
-  const type = document.querySelector('input[name="fav-save-type"]:checked')?.value || 'both';
+  const rawLabel = inpFavLabel.value.trim();
+  const label = rawLabel || `Favorite ${loadFavorites().length + 1}`;
+  const rawType = document.querySelector('input[name="fav-save-type"]:checked')?.value || 'both';
+  const type = rawType.toLowerCase() === 'location' ? 'Location' : (rawType.toLowerCase() === 'moment' ? 'Moment' : 'Both');
   const curLat = parseFloat(document.getElementById('inp-lat').value) || lat;
   const curLng = parseFloat(document.getElementById('inp-lng').value) || lng;
   const curDate = document.getElementById('inp-date').value;
   const curTime = document.getElementById('inp-time').value;
   const frozen = document.getElementById('inp-freeze').checked;
 
-  const newFav = {
+  const newFav = toCanonicalFav({
     id: Date.now().toString(),
     label,
     type,
-    lat: curLat,
-    lng: curLng,
-    date: curDate,
-    time: curTime,
+    lat: (type === 'Location' || type === 'Both') ? curLat : null,
+    lng: (type === 'Location' || type === 'Both') ? curLng : null,
+    date: (type === 'Moment' || type === 'Both') ? curDate : null,
+    time: (type === 'Moment' || type === 'Both') ? curTime : null,
     frozen
-  };
+  });
 
   const list = loadFavorites();
   list.unshift(newFav);
