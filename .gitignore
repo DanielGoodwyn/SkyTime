@@ -5,3 +5,11 @@
 *.zip
 attempts/
 SkyTime Windsurf/
+.gradle/
+**/build/
+*.apk
+*.aab
+.idea/
+DerivedData/
+*.xcuserdatad
+local.properties

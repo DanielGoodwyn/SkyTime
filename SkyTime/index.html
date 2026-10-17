@@ -84,12 +84,17 @@ html, body {
 .time-part { font-weight: 200; letter-spacing: 0.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .time-ampm { font-weight: 300; letter-spacing: 0.14em; opacity: 0.85; margin-top: 2px; }
 .divider { width: 1px; height: 100%; background: rgba(255, 255, 255, 0.14); position: absolute; left: 50%; top: 0; z-index: 2; pointer-events: none; }
-#hud-pill {
+#hud-container {
   position: absolute;
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#hud-pill {
   background: rgba(6, 10, 24, 0.52);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -108,11 +113,43 @@ html, body {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   transition: background 0.15s, border-color 0.15s;
 }
-#hud-pill:hover { background: rgba(12, 20, 44, 0.75); border-color: rgba(255, 255, 255, 0.45); }
+#auth-pill {
+  background: rgba(6, 10, 24, 0.52);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s, border-color 0.15s;
+}
+#hud-pill:hover, #auth-pill:hover { background: rgba(12, 20, 44, 0.75); border-color: rgba(255, 255, 255, 0.45); }
 .gps-dot { width: 6px; height: 6px; border-radius: 50%; background: #8892a6; display: inline-block; }
 .gps-dot.on { background: #38e54d; box-shadow: 0 0 6px #38e54d; }
 .gps-dot.locating { background: #f5b041; box-shadow: 0 0 6px #f5b041; }
 .gps-dot.denied { background: #ff4d4f; }
+#auth-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(2, 4, 12, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+#auth-modal.open { display: flex; }
 #custom-modal {
   position: fixed;
   inset: 0;
@@ -229,15 +266,21 @@ html, body {
         <div class="time-ampm" id="clk-ap">am</div>
       </div>
     </div>
-    <button id="hud-pill" type="button" title="Click to set custom longitude/latitude or custom date/time">
-      <span class="gps-dot" id="hud-gps-dot"></span>
-      <span id="hud-gps-txt">gps: off</span>
-      <span>·</span>
-      <span id="hud-coords">37.77°, -122.42°</span>
-      <span>·</span>
-      <span id="hud-datetime">live</span>
-      <span>✎</span>
-    </button>
+    <div id="hud-container">
+      <button id="hud-pill" type="button" title="Click to set custom longitude/latitude or custom date/time">
+        <span class="gps-dot" id="hud-gps-dot"></span>
+        <span id="hud-gps-txt">gps: off</span>
+        <span>·</span>
+        <span id="hud-coords">37.77°, -122.42°</span>
+        <span>·</span>
+        <span id="hud-datetime">live</span>
+        <span>✎</span>
+      </button>
+      <button id="auth-pill" type="button" title="Sign in or Account">
+        <svg id="auth-pill-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span id="auth-pill-text">Begin</span>
+      </button>
+    </div>
   </div>
   <div id="bottombar">
     <div class="bar-row" id="row-lng" title="Click or drag bar to set longitude; click value to enter exact coordinates">
@@ -309,6 +352,78 @@ html, body {
   </div>
 </div>
 
+<div id="auth-modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-label="Sign in or Account" style="max-width:320px;">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="favicon.svg" alt="SkyTime" style="width:24px;height:24px;display:block;border-radius:50%;box-shadow:0 0 10px rgba(242,140,66,0.35);">
+        <span id="auth-modal-title">Begin SkyTime</span>
+      </div>
+      <button class="modal-close" id="auth-modal-close" type="button" aria-label="Close">×</button>
+    </div>
+
+    <!-- Signed Out View -->
+    <div id="auth-signed-out-view" class="modal-section" style="display:flex; flex-direction:column; gap:8px;">
+      <div style="font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.4;">
+        Sign in or start a new account with your email
+      </div>
+
+      <div class="field">
+        <label for="auth-email">Email</label>
+        <input id="auth-email" type="email" placeholder="name@domain.com" value="danielgoodwyn@gmail.com" autocomplete="email">
+      </div>
+
+      <div class="field">
+        <label for="auth-password">Password</label>
+        <input id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <div id="auth-error-msg" style="display:none; color:#ff6b6b; font-size:11px; line-height:1.3; background:rgba(255,50,50,0.12); padding:6px 8px; border-radius:6px; border:1px solid rgba(255,50,50,0.3);"></div>
+      <div id="auth-success-msg" style="display:none; color:#51cf66; font-size:11px; line-height:1.3; background:rgba(50,200,80,0.12); padding:6px 8px; border-radius:6px; border:1px solid rgba(50,200,80,0.3);"></div>
+
+      <button class="btn primary" id="btn-auth-begin" type="button" style="background:#f28c42; border-color:#f59e0b; color:#fff; font-weight:600; padding:8px; font-size:12px; margin-top:2px;">
+        Begin
+      </button>
+
+      <div style="text-align:center; margin:2px 0;">
+        <button id="btn-forgot-password" type="button" style="background:none; border:none; color:rgba(255,255,255,0.6); font-size:10px; text-decoration:underline; cursor:pointer;">
+          Forgot your password?
+        </button>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px; margin:2px 0;">
+        <div style="flex:1; height:1px; background:rgba(255,255,255,0.15);"></div>
+        <span style="font-size:10px; color:rgba(255,255,255,0.45); text-transform:uppercase;">or</span>
+        <div style="flex:1; height:1px; background:rgba(255,255,255,0.15);"></div>
+      </div>
+
+      <button class="btn" id="btn-auth-google" type="button" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:7px; background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2);">
+        <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.13C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.13z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/></svg>
+        Begin with Google
+      </button>
+    </div>
+
+    <!-- Signed In View -->
+    <div id="auth-signed-in-view" class="modal-section" style="display:none; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px; padding:10px; background:rgba(255,255,255,0.06); border-radius:8px;">
+        <div id="auth-avatar" style="width:34px; height:34px; border-radius:50%; background:#28a745; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; font-size:15px;">
+          D
+        </div>
+        <div style="overflow:hidden;">
+          <div id="auth-user-email" style="font-size:12px; font-weight:500; color:#fff; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;"></div>
+          <div style="font-size:9px; color:#51cf66; letter-spacing:0.06em;">SIGNED IN WITH FIREBASE</div>
+        </div>
+      </div>
+
+      <button class="btn" id="btn-auth-signout" type="button" style="background:rgba(220,53,69,0.3); border-color:rgba(220,53,69,0.5); color:#fff; padding:7px;">
+        Sign Out
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script>
 let lat = 37.7749, lng = -122.4194;
 let gpsState = 'off'; // 'off' | 'locating' | 'on' | 'denied'
@@ -792,6 +907,187 @@ updateGpsUI();
 scaleFontToFit();
 tick();
 setInterval(tick, 100);
+
+// --- Firebase Authentication (Unified Begin / Sign In / Sign Up / Google / Forgot Password) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCzUEuK46_qHYzxSS07GAprhtupTYsBNbs",
+  authDomain: "goodwyn-babynames.firebaseapp.com",
+  projectId: "goodwyn-babynames",
+  storageBucket: "goodwyn-babynames.appspot.com",
+  messagingSenderId: "338871638321",
+  appId: "1:338871638321:web:5ee1aa81a04d3856b3e94e"
+};
+if (window.firebase && !firebase.apps.length) {
+  try {
+    firebase.initializeApp(firebaseConfig);
+  } catch (e) {
+    console.warn("Firebase initialization warning:", e);
+  }
+}
+const auth = window.firebase ? firebase.auth() : null;
+
+const authModal = document.getElementById('auth-modal');
+const authPill = document.getElementById('auth-pill');
+const authPillText = document.getElementById('auth-pill-text');
+const authPillIcon = document.getElementById('auth-pill-icon');
+const authSignedOutView = document.getElementById('auth-signed-out-view');
+const authSignedInView = document.getElementById('auth-signed-in-view');
+const authEmailInput = document.getElementById('auth-email');
+const authPasswordInput = document.getElementById('auth-password');
+const authErrorMsg = document.getElementById('auth-error-msg');
+const authSuccessMsg = document.getElementById('auth-success-msg');
+const authUserEmail = document.getElementById('auth-user-email');
+const authAvatar = document.getElementById('auth-avatar');
+const btnAuthBegin = document.getElementById('btn-auth-begin');
+const btnForgotPassword = document.getElementById('btn-forgot-password');
+const btnAuthGoogle = document.getElementById('btn-auth-google');
+const btnAuthSignout = document.getElementById('btn-auth-signout');
+
+function showAuthError(msg) {
+  authErrorMsg.textContent = msg;
+  authErrorMsg.style.display = 'block';
+  authSuccessMsg.style.display = 'none';
+}
+function showAuthSuccess(msg) {
+  authSuccessMsg.textContent = msg;
+  authSuccessMsg.style.display = 'block';
+  authErrorMsg.style.display = 'none';
+}
+function clearAuthAlerts() {
+  authErrorMsg.style.display = 'none';
+  authSuccessMsg.style.display = 'none';
+}
+
+function openAuthModal() {
+  clearAuthAlerts();
+  authModal.classList.add('open');
+  authModal.setAttribute('aria-hidden', 'false');
+  if (!auth?.currentUser) {
+    setTimeout(() => authPasswordInput.focus(), 50);
+  }
+}
+function closeAuthModal() {
+  authModal.classList.remove('open');
+  authModal.setAttribute('aria-hidden', 'true');
+}
+
+authPill.addEventListener('click', openAuthModal);
+document.getElementById('auth-modal-close').addEventListener('click', closeAuthModal);
+authModal.addEventListener('click', (e) => { if (e.target === authModal) closeAuthModal(); });
+
+async function executeBegin() {
+  clearAuthAlerts();
+  const email = (authEmailInput.value || '').trim().toLowerCase();
+  const password = authPasswordInput.value || '';
+
+  if (!email || !email.includes('@')) {
+    showAuthError("Please enter a valid email address.");
+    return;
+  }
+  if (!password) {
+    showAuthError("Please enter your password.");
+    return;
+  }
+
+  btnAuthBegin.disabled = true;
+  btnAuthBegin.textContent = "Connecting...";
+
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    showAuthSuccess(`Welcome back, ${email}!`);
+    setTimeout(closeAuthModal, 800);
+  } catch (err) {
+    const code = err.code || '';
+    if (code === 'auth/user-not-found' || code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') {
+      try {
+        await auth.createUserWithEmailAndPassword(email, password);
+        showAuthSuccess(`Account created! Welcome, ${email}!`);
+        setTimeout(closeAuthModal, 800);
+      } catch (signupErr) {
+        if (signupErr.code === 'auth/email-already-in-use') {
+          showAuthError("Incorrect password for existing account. Please try again or use 'Forgot your password?'.");
+        } else if (signupErr.code === 'auth/weak-password') {
+          showAuthError("Password must be at least 6 characters.");
+        } else {
+          showAuthError(signupErr.message || "Failed to create account.");
+        }
+      }
+    } else if (code === 'auth/wrong-password') {
+      showAuthError("Incorrect password. Please try again or use 'Forgot your password?'.");
+    } else {
+      showAuthError(err.message || "Unable to complete request.");
+    }
+  } finally {
+    btnAuthBegin.disabled = false;
+    btnAuthBegin.textContent = "Begin";
+  }
+}
+
+btnAuthBegin.addEventListener('click', executeBegin);
+authPasswordInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') executeBegin();
+});
+authEmailInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') authPasswordInput.focus();
+});
+
+btnForgotPassword.addEventListener('click', async () => {
+  clearAuthAlerts();
+  const email = (authEmailInput.value || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    showAuthError("Please enter your email in the field above first.");
+    return;
+  }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    showAuthSuccess(`Password reset instructions sent to ${email}. Check your inbox!`);
+  } catch (err) {
+    showAuthError(err.message || "Failed to send password reset email.");
+  }
+});
+
+btnAuthGoogle.addEventListener('click', async () => {
+  clearAuthAlerts();
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    await auth.signInWithPopup(provider);
+    showAuthSuccess("Signed in with Google!");
+    setTimeout(closeAuthModal, 800);
+  } catch (err) {
+    showAuthError(err.message || "Google sign-in could not be completed.");
+  }
+});
+
+btnAuthSignout.addEventListener('click', async () => {
+  try {
+    await auth.signOut();
+    showAuthSuccess("Signed out.");
+    setTimeout(closeAuthModal, 600);
+  } catch (err) {
+    showAuthError(err.message || "Failed to sign out.");
+  }
+});
+
+if (auth) {
+  auth.onAuthStateChanged((user) => {
+    if (user && user.email) {
+      const email = user.email;
+      const prefix = email.split('@')[0];
+      authPillText.textContent = prefix;
+      authPillIcon.style.color = '#38e54d';
+      authSignedOutView.style.display = 'none';
+      authSignedInView.style.display = 'flex';
+      authUserEmail.textContent = email;
+      authAvatar.textContent = (prefix[0] || 'U').toUpperCase();
+    } else {
+      authPillText.textContent = 'Begin';
+      authPillIcon.style.color = 'rgba(255,255,255,0.92)';
+      authSignedOutView.style.display = 'flex';
+      authSignedInView.style.display = 'none';
+      authUserEmail.textContent = '';
+    }
+  });
+}
 </script>
 </body>
 </html>
