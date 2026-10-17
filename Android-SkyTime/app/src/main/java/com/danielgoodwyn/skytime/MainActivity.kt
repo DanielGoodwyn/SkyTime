@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -271,6 +272,38 @@ fun SkyTimeScreen(
                         }
                     }
 
+                    // Unpause Button (Visible when time is frozen)
+                    if (customFrozen) {
+                        Surface(
+                            color = Color(0xFFF28C40).copy(alpha = 0.85f),
+                            shape = CircleShape,
+                            shadowElevation = 4.dp,
+                            modifier = Modifier.clickable {
+                                customFrozen = false
+                                customAnchorMs = System.currentTimeMillis()
+                            }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Unpause",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = "Unpause",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
                     // Auth Pill
                     Surface(
                         color = Color.Black.copy(alpha = 0.55f),
@@ -364,6 +397,12 @@ fun SkyTimeScreen(
                     onTap = {
                         onRequestLocationPermission()
                         locationManager.toggleGPS()
+                        // Seeing with GPS for here and now: unfrozen by normal default!
+                        if (locationManager.gpsState == GPSState.LOCATING || locationManager.gpsState == GPSState.ON) {
+                            customTimeMode = false
+                            customFrozen = false
+                            customTargetMs = null
+                        }
                     }
                 )
             }
@@ -376,9 +415,28 @@ fun SkyTimeScreen(
                 sheetState = sheetState,
                 containerColor = Color(0xFF0A0C18)
             ) {
+                fun applyCustomTime(dateStr: String, timeStr: String, freeze: Boolean) {
+                    try {
+                        val parts = dateStr.split("-").map { it.trim().toInt() }
+                        val tParts = timeStr.split(":").map { it.trim().toInt() }
+                        val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+                            clear()
+                            set(parts[0], parts[1] - 1, parts[2], tParts.getOrElse(0) { 0 }, tParts.getOrElse(1) { 0 }, tParts.getOrElse(2) { 0 })
+                        }
+                        val approxUtc = cal.timeInMillis - kotlin.math.round(longitude / 15.0).toLong() * 3600000L
+                        val tzOffH = AstronomicalEngine.getTimezoneOffsetHours(approxUtc, latitude, longitude, false)
+                        customTargetMs = (cal.timeInMillis - tzOffH * 3600000.0).toLong()
+                        customAnchorMs = System.currentTimeMillis()
+                        customFrozen = freeze
+                        customTimeMode = true
+                    } catch (e: Exception) {}
+                }
+
                 LocationAndDateTimeSheet(
-                    latitude = latitude,
-                    longitude = longitude,
+                    latitude = curLat,
+                    longitude = curLng,
+                    initialDate = clk.isoDate,
+                    initialTime = clk.isoTime,
                     isGpsOn = isGpsOn,
                     customTimeMode = customTimeMode,
                     customFrozen = customFrozen,
@@ -396,27 +454,51 @@ fun SkyTimeScreen(
                     onToggleGps = {
                         onRequestLocationPermission()
                         locationManager.toggleGPS()
+                        // Seeing with GPS for here and now: unfrozen by normal default!
+                        if (locationManager.gpsState == GPSState.LOCATING || locationManager.gpsState == GPSState.ON) {
+                            customTimeMode = false
+                            customFrozen = false
+                            customTargetMs = null
+                            showLocationSheet = false
+                        }
                     },
                     onResetSf = {
                         latitude = 37.7749
                         longitude = -122.4194
                         locationManager.stopGPS(GPSState.OFF)
+                        customTimeMode = false
+                        customFrozen = false
+                        customTargetMs = null
                     },
                     onSetCustomTime = { dateStr, timeStr, freeze ->
-                        try {
-                            val parts = dateStr.split("-").map { it.toInt() }
-                            val tParts = timeStr.split(":").map { it.toInt() }
-                            val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
-                                set(parts[0], parts[1] - 1, parts[2], tParts.getOrElse(0) { 0 }, tParts.getOrElse(1) { 0 }, tParts.getOrElse(2) { 0 })
-                            }
-                            val approxUtc = cal.timeInMillis - kotlin.math.round(longitude / 15.0).toLong() * 3600000L
-                            val tzOffH = AstronomicalEngine.getTimezoneOffsetHours(approxUtc, latitude, longitude, false)
-                            customTargetMs = (cal.timeInMillis - tzOffH * 3600000.0).toLong()
-                            customAnchorMs = System.currentTimeMillis()
-                            customFrozen = freeze
-                            customTimeMode = true
-                        } catch (e: Exception) {}
+                        applyCustomTime(dateStr, timeStr, freeze)
                         showLocationSheet = false
+                    },
+                    onApplyFavorite = { fav ->
+                        val favLat = fav.latitude
+                        val favLng = fav.longitude
+                        if ((fav.type == "Location" || fav.type == "Both") && favLat != null && favLng != null) {
+                            latitude = favLat
+                            longitude = favLng
+                            locationManager.stopGPS(GPSState.OFF)
+                        }
+                        val d = fav.dateText
+                        val t = fav.timeText
+                        if ((fav.type == "Moment" || fav.type == "Both") && d != null && t != null) {
+                            // Choosing a favorite freezes time by default
+                            applyCustomTime(d, t, true)
+                        } else {
+                            // Location-only favorite: freeze at the current moment
+                            customTargetMs = activeNowMs
+                            customAnchorMs = System.currentTimeMillis()
+                            customFrozen = true
+                            customTimeMode = true
+                        }
+                        showLocationSheet = false
+                    },
+                    onUnpause = {
+                        customFrozen = false
+                        customAnchorMs = System.currentTimeMillis()
                     },
                     onResetLive = {
                         customTimeMode = false
@@ -547,6 +629,8 @@ fun SingleProgressBarCompose(
 fun LocationAndDateTimeSheet(
     latitude: Double,
     longitude: Double,
+    initialDate: String,
+    initialTime: String,
     isGpsOn: Boolean,
     customTimeMode: Boolean,
     customFrozen: Boolean,
@@ -557,13 +641,16 @@ fun LocationAndDateTimeSheet(
     onToggleGps: () -> Unit,
     onResetSf: () -> Unit,
     onSetCustomTime: (String, String, Boolean) -> Unit,
+    onApplyFavorite: (SkyFavorite) -> Unit,
+    onUnpause: () -> Unit,
     onResetLive: () -> Unit,
     onClose: () -> Unit
 ) {
     var latText by remember { mutableStateOf("%.4f".format(latitude)) }
     var lngText by remember { mutableStateOf("%.4f".format(longitude)) }
-    var dateText by remember { mutableStateOf("2026-10-16") }
-    var timeText by remember { mutableStateOf("16:00:00") }
+    var dateText by remember { mutableStateOf(initialDate) }
+    var timeText by remember { mutableStateOf(initialTime) }
+    var timeEdited by remember { mutableStateOf(false) }
     var freezeChecked by remember { mutableStateOf(customFrozen) }
     var favLabel by remember { mutableStateOf("") }
     var favType by remember { mutableStateOf("Both") }
@@ -610,16 +697,7 @@ fun LocationAndDateTimeSheet(
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color.White.copy(alpha = 0.05f))
                                 .clickable {
-                                    if (fav.type == "Location" || fav.type == "Both") {
-                                        fav.latitude?.let { latText = "%.4f".format(it) }
-                                        fav.longitude?.let { lngText = "%.4f".format(it) }
-                                    }
-                                    if (fav.type == "Moment" || fav.type == "Both") {
-                                        fav.dateText?.let { dateText = it }
-                                        fav.timeText?.let { timeText = it }
-                                        freezeChecked = fav.isFrozen
-                                    }
-                                    favNotice = "Applied \"${fav.label}\""
+                                    onApplyFavorite(fav)
                                 }
                                 .padding(10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -733,14 +811,14 @@ fun LocationAndDateTimeSheet(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = dateText,
-                        onValueChange = { dateText = it },
+                        onValueChange = { dateText = it; timeEdited = true },
                         label = { Text("YYYY-MM-DD", color = Color.White.copy(0.7f)) },
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = timeText,
-                        onValueChange = { timeText = it },
+                        onValueChange = { timeText = it; timeEdited = true },
                         label = { Text("HH:MM:SS", color = Color.White.copy(0.7f)) },
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                         modifier = Modifier.weight(1f)
@@ -748,8 +826,23 @@ fun LocationAndDateTimeSheet(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = freezeChecked, onCheckedChange = { freezeChecked = it })
+                    Checkbox(checked = freezeChecked, onCheckedChange = { freezeChecked = it; timeEdited = true })
                     Text("Freeze time at this moment", color = Color.White, fontSize = 13.sp)
+                }
+
+                if (freezeChecked) {
+                    Button(
+                        onClick = {
+                            freezeChecked = false
+                            onUnpause()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF28C40).copy(alpha = 0.85f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Unpause (Resume Ticking)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
 
                 Button(

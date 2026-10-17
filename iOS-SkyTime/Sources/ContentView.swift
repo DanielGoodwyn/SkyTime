@@ -118,8 +118,13 @@ public struct ContentView: View {
                                     ? "\(clk.isoDate) \(clk.isoTime)\(customFrozen ? " (frozen)" : " (custom)")"
                                     : "\(clk.isoDate) (live)",
                                 user: authManager.currentUser,
+                                isFrozen: customFrozen,
                                 onOpenModal: { showLocationSheet = true },
-                                onOpenAuth: { showAuthSheet = true }
+                                onOpenAuth: { showAuthSheet = true },
+                                onUnpause: {
+                                    customFrozen = false
+                                    customAnchorDate = Date()
+                                }
                             )
                             .padding(.bottom, 8)
                         }
@@ -135,6 +140,12 @@ public struct ContentView: View {
                     fillGrad: fillGrad,
                     onToggleGPS: {
                         locationManager.toggleGPS()
+                        // When activating GPS for here and now: unfrozen by normal default!
+                        if locationManager.gpsState == .on || locationManager.gpsState == .locating {
+                            customTimeMode = false
+                            customFrozen = false
+                            customTargetDate = nil
+                        }
                     },
                     onOpenModal: { showLocationSheet = true }
                 )

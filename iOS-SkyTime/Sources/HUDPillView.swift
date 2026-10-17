@@ -6,8 +6,10 @@ public struct HUDPillView: View {
     public let longitude: Double
     public let datetimeString: String
     public let user: SkyUser?
+    public let isFrozen: Bool
     public var onOpenModal: () -> Void
     public var onOpenAuth: () -> Void
+    public var onUnpause: () -> Void
     
     public init(
         gpsState: GPSState,
@@ -15,16 +17,20 @@ public struct HUDPillView: View {
         longitude: Double,
         datetimeString: String,
         user: SkyUser?,
+        isFrozen: Bool = false,
         onOpenModal: @escaping () -> Void,
-        onOpenAuth: @escaping () -> Void
+        onOpenAuth: @escaping () -> Void,
+        onUnpause: @escaping () -> Void = {}
     ) {
         self.gpsState = gpsState
         self.latitude = latitude
         self.longitude = longitude
         self.datetimeString = datetimeString
         self.user = user
+        self.isFrozen = isFrozen
         self.onOpenModal = onOpenModal
         self.onOpenAuth = onOpenAuth
+        self.onUnpause = onUnpause
     }
     
     public var body: some View {
@@ -59,6 +65,28 @@ public struct HUDPillView: View {
                 )
             }
             .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+            
+            // Unpause Button (Visible when time is frozen)
+            if isFrozen {
+                Button(action: onUnpause) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 8))
+                        Text("Unpause")
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(red: 242/255, green: 140/255, blue: 64/255).opacity(0.85))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white.opacity(0.35), lineWidth: 0.5)
+                    )
+                }
+                .shadow(color: Color(red: 242/255, green: 140/255, blue: 64/255).opacity(0.4), radius: 4, y: 2)
+            }
             
             // Auth / Account button
             Button(action: onOpenAuth) {

@@ -151,9 +151,15 @@ public struct CustomLocationSheet: View {
                             HStack(spacing: 12) {
                                 Button(action: {
                                     locationManager.toggleGPS()
-                                    if locationManager.gpsState == .on {
+                                    if locationManager.gpsState == .on || locationManager.gpsState == .locating {
                                         latStr = String(format: "%.4f", locationManager.latitude)
                                         lngStr = String(format: "%.4f", locationManager.longitude)
+                                        // Seeing with GPS for here and now: unfrozen by normal default!
+                                        isCustomTime = false
+                                        freezeToggle = false
+                                        customTimeMode = false
+                                        customFrozen = false
+                                        customTargetDate = nil
                                     }
                                 }) {
                                     HStack {
@@ -174,6 +180,11 @@ public struct CustomLocationSheet: View {
                                     longitude = -122.4194
                                     latStr = "37.7749"
                                     lngStr = "-122.4194"
+                                    isCustomTime = false
+                                    freezeToggle = false
+                                    customTimeMode = false
+                                    customFrozen = false
+                                    customTargetDate = nil
                                 }) {
                                     Text("Default (SF)")
                                         .font(.system(size: 13, weight: .medium))
@@ -218,6 +229,24 @@ public struct CustomLocationSheet: View {
                                     }
                                 }
                                 .tint(Color.cyan)
+                                
+                                if freezeToggle {
+                                    Button(action: {
+                                        freezeToggle = false
+                                        customFrozen = false
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "play.fill")
+                                            Text("Unpause (Resume Ticking)")
+                                        }
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(Color(red: 242/255, green: 140/255, blue: 64/255).opacity(0.85))
+                                        .foregroundColor(.white)
+                                        .cornerRadius(8)
+                                    }
+                                }
                             }
                             
                             Button(action: {
@@ -416,17 +445,22 @@ public struct CustomLocationSheet: View {
                 locationManager.stopGPS()
             }
         }
+        // Time freezes by default if you choose a favorite!
+        isCustomTime = true
+        customTimeMode = true
+        freezeToggle = true
+        customFrozen = true
+        
         if fav.type == .moment || fav.type == .both {
             if let targetDate = fav.targetDate {
-                isCustomTime = true
                 selectedDate = targetDate
-                freezeToggle = fav.isFrozen
-                customTimeMode = true
-                customFrozen = fav.isFrozen
                 customTargetDate = targetDate
             }
+        } else {
+            selectedDate = Date()
+            customTargetDate = Date()
         }
-        favSaveSuccess = "Applied \"\(fav.label)\""
+        favSaveSuccess = "Applied \"\(fav.label)\" (Frozen)"
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             favSaveSuccess = nil
         }
